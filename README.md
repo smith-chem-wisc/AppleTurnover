@@ -1,2 +1,2 @@
 # ApplE Turnover
-Application for Elucidating Turnover Rates in Proteomics
+Application for elucidating turnover rates in biological system
