@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public class PoolParameters
     {

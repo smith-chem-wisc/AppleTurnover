@@ -31,10 +31,10 @@ using System.Windows.Media.TextFormatting;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Shell;
-using TurnoverGUI;
+using AppleTurnover;
 
 
-namespace TurnoverGUI {
+namespace AppleTurnover {
     
     
     /// <summary>
@@ -315,7 +315,7 @@ namespace TurnoverGUI {
             case 1:
             
             #line 9 "..\..\..\MainWindow.xaml"
-            ((TurnoverGUI.MainWindow)(target)).Drop += new System.Windows.DragEventHandler(this.Window_Drop);
+            ((AppleTurnover.MainWindow)(target)).Drop += new System.Windows.DragEventHandler(this.Window_Drop);
             
             #line default
             #line hidden

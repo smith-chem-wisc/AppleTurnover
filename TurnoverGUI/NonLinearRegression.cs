@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Linq;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public class NonLinearRegression
     {

@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public class RawDataForDataGrid
     {

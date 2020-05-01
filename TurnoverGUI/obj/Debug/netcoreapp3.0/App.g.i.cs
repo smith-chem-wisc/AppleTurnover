@@ -30,10 +30,10 @@ using System.Windows.Media.TextFormatting;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Shell;
-using TurnoverGUI;
+using AppleTurnover;
 
 
-namespace TurnoverGUI {
+namespace AppleTurnover {
     
     
     /// <summary>
@@ -62,7 +62,7 @@ namespace TurnoverGUI {
         [System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [System.CodeDom.Compiler.GeneratedCodeAttribute("PresentationBuildTasks", "4.8.1.0")]
         public static void Main() {
-            TurnoverGUI.App app = new TurnoverGUI.App();
+            AppleTurnover.App app = new AppleTurnover.App();
             app.InitializeComponent();
             app.Run();
         }

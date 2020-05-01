@@ -15,7 +15,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using UsefulProteomicsDatabases;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

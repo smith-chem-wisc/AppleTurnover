@@ -8,7 +8,7 @@ using UsefulProteomicsDatabases;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public static class DataPreparation
     {
