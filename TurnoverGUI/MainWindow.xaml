@@ -7,7 +7,7 @@
         xmlns:local="clr-namespace:TurnoverGUI"
         mc:Ignorable="d"        
         Drop="Window_Drop" AllowDrop="true"
-        Title="TurnoverGUI" Height="710" Width="1200">
+        Title="ApplE Turnover" Height="710" Width="1200">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <DockPanel>
