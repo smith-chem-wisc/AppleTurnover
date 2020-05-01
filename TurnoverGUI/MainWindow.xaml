@@ -1,0 +1,247 @@
+﻿<Window x:Class="TurnoverGUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ScottPlot="clr-namespace:ScottPlot;assembly=ScottPlot.WPF" 
+        xmlns:local="clr-namespace:TurnoverGUI"
+        mc:Ignorable="d"        
+        Drop="Window_Drop" AllowDrop="true"
+        Title="TurnoverGUI" Height="710" Width="1200">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <DockPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="125"/>
+                    <RowDefinition Height="135"/>
+                    <RowDefinition Height="100"/>
+                    <RowDefinition Height="850"/>
+                    <RowDefinition Height="30"/>
+                </Grid.RowDefinitions>
+
+                <GroupBox Header="Database(s) (.fasta or .xml)" Grid.Row="0"  Name="databaseFilesGroupBox">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="80" />
+                            <RowDefinition Height="20" />
+                        </Grid.RowDefinitions>
+                        <DataGrid x:Name="dataGridDatabaseFiles" ItemsSource="{Binding}" CanUserSortColumns="False" CanUserResizeColumns="False" CanUserReorderColumns="False" DockPanel.Dock="Top">
+                            <DataGrid.Resources>
+                                <ResourceDictionary>
+                                    <Style x:Key="{x:Type DataGridCell}" TargetType="{x:Type DataGridCell}">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="Black" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="Black" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding InProgress}" Value="True">
+                                                <Setter Property="Foreground" Value="Blue" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                    <Style TargetType="{x:Type DataGridRow}">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="Black" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="Coral" />
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="Black" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding InProgress}" Value="True">
+                                                <Setter Property="Foreground" Value="Blue" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ResourceDictionary>
+                            </DataGrid.Resources>
+                        </DataGrid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="1">
+                            <Button x:Name="AddDatabaseButton" Content="Add Database" Click="AddDatabase_Click" />
+                            <Button x:Name="ClearDatabaseButton" Content="Clear" Click="ClearDatabase_Click" />
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+                <GroupBox Header="Result Files (AllQuantifiedPeptides.tsv)" Grid.Row="1"  Name="datafilesGroupBox">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="80" />
+                            <RowDefinition Height="25" />
+                        </Grid.RowDefinitions>
+                        <DataGrid x:Name="dataGridPeptideFiles" ItemsSource="{Binding}" CanUserSortColumns="False" CanUserResizeColumns="False" CanUserReorderColumns="False" DockPanel.Dock="Top">
+                            <DataGrid.Resources>
+                                <ResourceDictionary>
+                                    <Style x:Key="{x:Type DataGridCell}" TargetType="{x:Type DataGridCell}">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="Black" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="Black" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding InProgress}" Value="True">
+                                                <Setter Property="Foreground" Value="Blue" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                    <Style TargetType="{x:Type DataGridRow}">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="Black" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="Coral" />
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Setter Property="Foreground" Value="Black" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding InProgress}" Value="True">
+                                                <Setter Property="Foreground" Value="Blue" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ResourceDictionary>
+                            </DataGrid.Resources>
+                        </DataGrid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Grid.Row="1">
+                            <Button x:Name="AddDataButton" Content="Add Results" Click="AddDataFile_Click" />
+                            <Button x:Name="ClearDataButton" Content="Clear" Click="ClearDataFiles_Click" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Grid.Row="1">
+                            <Label x:Name="SearchEngineLabel" Content="Search Engine Used:" Margin="10 0 10 0"/>
+                            <RadioButton x:Name="MaxQuantRadioButton" Content="MaxQuant" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
+                            <RadioButton x:Name="MetaMorpheusRadioButton" Content="MetaMorpheus" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+                <StackPanel Grid.Row="2">
+                    <Grid Margin="0 10 0 10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" Margin="5 5 5 0" Grid.Column="0">
+                            <Label x:Name="MinValidValuesTotalLabel" Content="Minimum Number of Valid Values (Total):" Width="250" />
+                            <TextBox x:Name="MinValidValuesTotalTextBox" PreviewTextInput="CheckIfNumber" Width="45" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500">
+                                <TextBox.ToolTip>
+                                    <TextBlock>
+                              The minimum number of samples with a ratio allowed. If a protein has a ratio for fewer samples than this number, it is discarded.
+                                    </TextBlock>
+                                </TextBox.ToolTip>
+                            </TextBox>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="5 5 5 0" Grid.Column="1">
+                            <Label x:Name="MinValidValuesTimepointLabel" Content="Minimum Number of Valid Values Per Timepoint:" Width="300" />
+                            <TextBox x:Name="MinValidValuesTimepointTextBox" PreviewTextInput="CheckIfNumber" Width="45" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500">
+                                <TextBox.ToolTip>
+                                    <TextBlock>
+                              The minimum number of samples with a ratio required for a timepoint to be considered. If a protein has fewer values than this number for a given timepoint, then that timepoint is discarded.
+                                    </TextBlock>
+                                </TextBox.ToolTip>
+                            </TextBox>
+                        </StackPanel>
+                        <CheckBox x:Name="UseBadRatiosCheckBox" Grid.Column="2" Content="Use Missing Value Ratios" Margin="10 9 5 0" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500" HorizontalAlignment="Center">
+                            <CheckBox.ToolTip>
+                                <TextBlock>
+                              Allows for data to be used if only the heavy or the light was quantified, producing ratios of 1:0, 0:1, 0.5:0.5, etc. When unchecked, at least two versions (light and heavy, light-light and heavy-light, etc) are required per sample.
+                                </TextBlock>
+                            </CheckBox.ToolTip>
+                        </CheckBox>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Name ="AnalyzeButton" Content="Analyze" Width="100" Margin="348 10 10 10" Click="Button_Click" />
+                        <Label Name="StatusLabel" Content="Run Status:" Margin="10"/>
+                        <TextBox x:Name="AnalysisStatusTextBox" Width="200" Height="20" Margin="0 10 50 10"/>
+                    </StackPanel>
+
+                </StackPanel>
+                <Expander Header="Visualization" DockPanel.Dock="Top" Margin="10,0,10,10" Grid.Row="3">
+                    <Grid Grid.Row="3">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="5*"/>
+                                <ColumnDefinition Width="5*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Label x:Name="SearchLabel" Content="Protein Lookup:" Margin="11 5 0 5"/>
+                                    <TextBox x:Name="ProteinSearchTextBox" TextChanged="ProteinSearchTextBox_TextChanged" Width="75" HorizontalAlignment="Left" Margin="0 5 0 5"/>
+                                </StackPanel>
+                                    <DataGrid x:Name="DisplayPeptidesDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding}" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="10,0,10,0" Height="600"
+                                        SelectedCellsChanged="PeptideDataGrid_SelectedCellsChanged" CanUserDeleteRows="false" CanUserAddRows="false">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Peptide" Binding="{Binding FullSequence}"></DataGridTextColumn>
+                                        <DataGridTextColumn Header="Protein" Binding="{Binding Protein}"></DataGridTextColumn>
+                                        <DataGridTextColumn Header="Error (MSE)" Binding="{Binding ErrorString}"></DataGridTextColumn>
+                                        <DataGridTextColumn Header="#Ratios" Binding="{Binding Timepoints.Length}"></DataGridTextColumn>
+                                        <DataGridTextColumn Header="File" Binding="{Binding FileName}"></DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+
+                            <Grid Grid.Column="1">
+                                <StackPanel Margin="10 0 0 0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3*"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="3*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <DataGrid x:Name="HiddenSamplesDataGrid" Grid.Row="0" AutoGenerateColumns="False" VerticalAlignment="Stretch" ItemsSource="{Binding}" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,0,0,0" Height="75"
+                                        CanUserDeleteRows="false" CanUserAddRows="false">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Hidden Samples " Binding="{Binding BindsDirectlyToSource=True}"></DataGridTextColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        <Button x:Name="ChangeSamplesDisplayed" Grid.Column="1" Height="50" Width="70" HorizontalAlignment="Center" VerticalAlignment="Center" Click="ChangeFilesToPlot_Click">
+                                            <TextBlock TextWrapping="Wrap" TextAlignment="Center">Move Selected File(s)</TextBlock>
+                                        </Button>
+                                        <DataGrid x:Name="DisplayedSamplesDataGrid" Grid.Column="2" AutoGenerateColumns="False" VerticalAlignment="Stretch" ItemsSource="{Binding}" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,0,0,0" 
+                                        CanUserDeleteRows="false" CanUserAddRows="false">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Displayed Samples " Binding="{Binding  BindsDirectlyToSource=True}"></DataGridTextColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Grid>
+                                    <CheckBox x:Name="PlotCICheckBox" Content="Plot Confidence Intervals" Margin="10 10 10 0" Click="ChangeFilesToPlot_Click" IsChecked="True"/>
+                                    <CheckBox x:Name="PlotAminoAcidPoolCheckBox" Content="Show Free Amino Acid Ratios" Margin="10 0 10 0" Click="ChangeFilesToPlot_Click" IsChecked="True"/>
+                                    <Label Name="ComparisonLabel"  Margin="20 0 20 0" FontSize="16" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <ScottPlot:WpfPlot Name="RatioComparisonPlot" Height="330" Margin="0 0 0 10"/>
+                                    <ScottPlot:WpfPlot Name="HalfLifeComparisonPlot" Height="330" Margin="0 10 0 0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Expander>
+
+                <!--<StackPanel Grid.Row="4">
+            <DockPanel Margin="5" Grid.Row="4" LastChildFill="True">
+                <Button x:Name="OpenOutputFolderButton" Content="Open" Width="40" DockPanel.Dock="Right" Click="OpenOutputFolder_Click"></Button>
+                <Label Content="Output Folder:" />
+                <TextBox x:Name="OutputFolderTextbox" ToolTip="$DATETIME is automatically replaced by the current date and time" />
+            </DockPanel>
+        </StackPanel>-->
+
+                <StackPanel Grid.Row="5">
+                </StackPanel>
+            </Grid>
+        </DockPanel>
+    </ScrollViewer>
+</Window>
