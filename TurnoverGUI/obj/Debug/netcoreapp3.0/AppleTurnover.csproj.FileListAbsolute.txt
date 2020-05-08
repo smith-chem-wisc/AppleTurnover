@@ -1,3 +1,6 @@
+E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover.csprojAssemblyReference.cache
+E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\App.g.cs
+E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover_MarkupCompile.cache
 E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\AppleTurnover.exe
 E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\AppleTurnover.deps.json
 E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\AppleTurnover.runtimeconfig.json
@@ -54,8 +57,6 @@ E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\runtimes\osx-x64\
 E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\runtimes\unix\lib\netcoreapp3.0\System.Drawing.Common.dll
 E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\runtimes\win\lib\netcoreapp3.0\System.Drawing.Common.dll
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\MainWindow.g.cs
-E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\App.g.cs
-E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover_MarkupCompile.cache
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover_MarkupCompile.lref
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\MainWindow.baml
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover.g.resources

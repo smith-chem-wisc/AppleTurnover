@@ -1,4 +1,7 @@
-﻿using Proteomics;
+﻿using FlashLFQ;
+using LiveCharts.Wpf;
+using Proteomics;
+using ScottPlot.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -26,11 +29,11 @@ namespace AppleTurnover
         private readonly ObservableCollection<RawDataForDataGrid> DatabasesObservableCollection = new ObservableCollection<RawDataForDataGrid>();
         ICollectionView DisplayPeptidesView;
         private bool AllowFileDrop = true;
-        private readonly ObservableCollection<PeptideTurnoverObject> PeptidesToDisplay = new ObservableCollection<PeptideTurnoverObject>(); 
+        private readonly ObservableCollection<PeptideTurnoverObject> PeptidesToDisplay = new ObservableCollection<PeptideTurnoverObject>();
         private readonly ObservableCollection<PeptideTurnoverObject> AllPeptides = new ObservableCollection<PeptideTurnoverObject>();
         private readonly ObservableCollection<string> FilesToDisplayObservableCollection = new ObservableCollection<string>();
         private readonly ObservableCollection<string> FilesToHideObservableCollection = new ObservableCollection<string>();
-        private Dictionary<string, PoolParameters> PoolParameterDictionary = new Dictionary<string,PoolParameters>();
+        private Dictionary<string, PoolParameters> PoolParameterDictionary = new Dictionary<string, PoolParameters>();
 
         public MainWindow()
         {
@@ -39,6 +42,7 @@ namespace AppleTurnover
             dataGridDatabaseFiles.DataContext = DatabasesObservableCollection;
             DisplayedSamplesDataGrid.DataContext = FilesToDisplayObservableCollection;
             HiddenSamplesDataGrid.DataContext = FilesToHideObservableCollection;
+            DisplayAnalyzedFilesDataGrid.DataContext = DataFilesObservableCollection;
 
             DisplayPeptidesView = CollectionViewSource.GetDefaultView(PeptidesToDisplay);
             DisplayPeptidesDataGrid.DataContext = DisplayPeptidesView;
@@ -96,7 +100,7 @@ namespace AppleTurnover
                 case ".tsv":
                 case ".psmtsv":
                 case ".txt":
-                    if (!DataFilesObservableCollection.Any(x=> x.FilePath.Equals(filepath)))
+                    if (!DataFilesObservableCollection.Any(x => x.FilePath.Equals(filepath)))
                     {
                         DataFilesObservableCollection.Add(new RawDataForDataGrid(filepath));
                     }
@@ -163,7 +167,7 @@ namespace AppleTurnover
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            if (DataFilesObservableCollection.Count != 0 || DatabasesObservableCollection.Count!=0)
+            if (DataFilesObservableCollection.Count != 0 || DatabasesObservableCollection.Count != 0)
             {
                 AllowFileDrop = false;
                 Dispatcher.Invoke(() =>
@@ -173,7 +177,7 @@ namespace AppleTurnover
                     FilesToHideObservableCollection.Clear();
                 });
 
-                //try
+                try
                 {
                     (sender as BackgroundWorker).ReportProgress(0, "Starting");
                     //var startTimeForAllFilenames = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture);
@@ -225,7 +229,7 @@ namespace AppleTurnover
 
                         if (peptides.Count == 0)
                         {
-                            throw new Exception("No peptides were found for file: " + file);
+                            throw new Exception("No peptides were found for file: " + file+"; did you select the correct search engine?");
                         }
                             //Fit data to model, get half lives, confidence intervals
                             (sender as BackgroundWorker).ReportProgress(0, "Analyzing File " + status.ToString() + "/" + maxStatus + "...");
@@ -251,11 +255,11 @@ namespace AppleTurnover
 
                     (sender as BackgroundWorker).ReportProgress(0, "Finished!");
                 }
-                //catch (Exception ex)
-                //{
-                //    MessageBox.Show("Task failed: " + ex.Message);
-                //    (sender as BackgroundWorker).ReportProgress(0, "Task failed");
-                //}
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Task failed: " + ex.Message);
+                    (sender as BackgroundWorker).ReportProgress(0, "Task failed");
+                }
 
                 AllowFileDrop = true;
                 Dispatcher.Invoke(() =>
@@ -295,12 +299,12 @@ namespace AppleTurnover
         //    }
         //}
 
-        private void PlotFit(PoolParameters poolParams, string label, double kbi=1000000) //default kbi is just a very high number to simulate instantaneous turnover (proxy for the available amino acid pool)
+        private void PlotFit(PoolParameters poolParams, string label, double kbi = 1000000) //default kbi is just a very high number to simulate instantaneous turnover (proxy for the available amino acid pool)
         {
             double[] timepoints = new double[200];
-            for(int i=0; i<timepoints.Length; i++)
+            for (int i = 0; i < timepoints.Length; i++)
             {
-                timepoints[i] = i / 2.0; 
+                timepoints[i] = i / 2.0;
             }
 
             //half-life = ln(2)/kbt, make half life 0, kbt = infinity
@@ -309,11 +313,11 @@ namespace AppleTurnover
             {
                 RatioComparisonPlot.plt.Layout(titleHeight: 20, xLabelHeight: 40, y2LabelWidth: 20);
                 RatioComparisonPlot.plt.XLabel("Time (Days)", fontSize: 24);
-                RatioComparisonPlot.plt.YLabel("Relative Fraction (New/Total)", fontSize:24);
+                RatioComparisonPlot.plt.YLabel("Relative Fraction (New/Total)", fontSize: 24);
                 RatioComparisonPlot.plt.Axis(0, 100, 0, 1);
                 RatioComparisonPlot.plt.Ticks(fontSize: 18);
-                RatioComparisonPlot.plt.PlotScatter(timepoints, rfs, label:label, markerShape:ScottPlot.MarkerShape.none);
-                RatioComparisonPlot.plt.Legend(fontSize:8);
+                RatioComparisonPlot.plt.PlotScatter(timepoints, rfs, label: label, markerShape: ScottPlot.MarkerShape.none);
+                RatioComparisonPlot.plt.Legend(fontSize: 8);
                 RatioComparisonPlot.Render();
             });
         }
@@ -326,7 +330,7 @@ namespace AppleTurnover
                 settingsToReturn = new Settings(
                     int.Parse(MinValidValuesTotalTextBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture),
                     int.Parse(MinValidValuesTimepointTextBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture),
-                    UseBadRatiosCheckBox.IsChecked.Value, 
+                    UseBadRatiosCheckBox.IsChecked.Value,
                     MaxQuantRadioButton.IsChecked.Value ? Settings.SearchEngine.MaxQuant : Settings.SearchEngine.MetaMorpheus);
             });
             return settingsToReturn;
@@ -382,10 +386,10 @@ namespace AppleTurnover
         /// </summary>
         private void PeptideDataGrid_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
         {
-            UpdatePlot();
+            UpdatePeptidePlots();
         }
 
-        private void UpdatePlot()
+        private void UpdatePeptidePlots()
         {
             if (DisplayPeptidesDataGrid.SelectedItem == null)
             {
@@ -412,7 +416,7 @@ namespace AppleTurnover
             HalfLifeComparisonPlot.plt.GetPlottables().Clear();
             if (PlotAminoAcidPoolCheckBox.IsChecked.Value)
             {
-                foreach(string file in FilesToDisplayObservableCollection)
+                foreach (string file in FilesToDisplayObservableCollection)
                 {
                     PlotFit(PoolParameterDictionary[file], "Free Amino Acids");
                 }
@@ -427,11 +431,11 @@ namespace AppleTurnover
             foreach (PeptideTurnoverObject peptide in peptidesToPlot)
             {
                 //get the title
-                RatioComparisonPlot.plt.Title(peptide.FullSequence, fontSize:24);
+                RatioComparisonPlot.plt.Title(peptide.FullSequence, fontSize: 24);
                 //plot actual data
                 RatioComparisonPlot.plt.PlotScatter(peptide.Timepoints, peptide.RelativeFractions, lineWidth: 0, label: "Observed Ratios");
                 //plot the fit
-                PlotFit(PoolParameterDictionary[peptide.FileName], "Fit (MSE: "+peptide.Error.ToString("0.0E0")+")", peptide.Kbi);
+                PlotFit(PoolParameterDictionary[peptide.FileName], "Fit (MSE: " + peptide.Error.ToString("0.0E0") + ")", peptide.Kbi);
                 //plt the confidence intervals
                 if (PlotCICheckBox.IsChecked.Value)
                 {
@@ -447,25 +451,26 @@ namespace AppleTurnover
                 double[] halfLives = peptidesSharingProteinAndFile.Select(x => Math.Log(2, Math.E) / x.Kbi).ToArray();
                 double[] negativeErrors = peptidesSharingProteinAndFile.Select(x => (Math.Log(2, Math.E) / x.Kbi) - (Math.Log(2, Math.E) / x.HighKbi)).ToArray();
                 double[] positiveErrors = peptidesSharingProteinAndFile.Select(x => (Math.Log(2, Math.E) / x.LowKbi) - (Math.Log(2, Math.E) / x.Kbi)).ToArray();
-                HalfLifeComparisonPlot.plt.Title(protein, fontSize:24);
+                HalfLifeComparisonPlot.plt.Title(protein, fontSize: 24);
                 HalfLifeComparisonPlot.plt.Layout(titleHeight: 20, xLabelHeight: 40, y2LabelWidth: 20);
                 HalfLifeComparisonPlot.plt.YLabel("Half-life (Days)", fontSize: 24);
                 HalfLifeComparisonPlot.plt.XLabel("Error (MSE)", fontSize: 24);
                 HalfLifeComparisonPlot.plt.Ticks(fontSize: 18);
-                var scatter = HalfLifeComparisonPlot.plt.PlotScatter(errors, halfLives, lineWidth:0);
+                var scatter = HalfLifeComparisonPlot.plt.PlotScatter(errors, halfLives, lineWidth: 0);
                 //plot the single point of the selected peptie separately (overlay) so that we know which one it is
                 var point = HalfLifeComparisonPlot.plt.PlotPoint(peptide.Error, Math.Log(2, Math.E) / peptide.Kbi);
                 //plot errors
-                HalfLifeComparisonPlot.plt.PlotErrorBars(errors, halfLives, null, null, positiveErrors, negativeErrors, scatter.color);          
+                HalfLifeComparisonPlot.plt.PlotErrorBars(errors, halfLives, null, null, positiveErrors, negativeErrors, scatter.color);
                 HalfLifeComparisonPlot.plt.PlotErrorBars(new double[] { peptide.Error }, new double[] { Math.Log(2, Math.E) / peptide.Kbi },
                     null, null, new double[] { (Math.Log(2, Math.E) / peptide.LowKbi) - (Math.Log(2, Math.E) / peptide.Kbi) },
-                    new double[] { (Math.Log(2, Math.E) / peptide.Kbi) - (Math.Log(2, Math.E) / peptide.HighKbi) }, color:point.color);
-                HalfLifeComparisonPlot.plt.Axis(errors.Min()-0.1, errors.Max()+0.1,halfLives.Min()-negativeErrors.Max()-0.1, halfLives.Max()+positiveErrors.Max()+0.1);
+                    new double[] { (Math.Log(2, Math.E) / peptide.Kbi) - (Math.Log(2, Math.E) / peptide.HighKbi) }, color: point.color);
+                //HalfLifeComparisonPlot.plt.Axis(errors.Min() - 0.1, errors.Max() + 0.1, halfLives.Min() - negativeErrors.Max() - 0.1, halfLives.Max() + positiveErrors.Max() + 0.1);
+                HalfLifeComparisonPlot.plt.Axis();
                 HalfLifeComparisonPlot.Render();
             }
         }
 
-        private void ChangeFilesToPlot_Click(object sender, RoutedEventArgs e)
+        private void ChangeFilesToPlotSpecificData_Click(object sender, RoutedEventArgs e)
         {
             //If hiding cells
             var selectedCells = DisplayedSamplesDataGrid.SelectedCells;
@@ -506,7 +511,7 @@ namespace AppleTurnover
             {
                 string text = ProteinSearchTextBox.Text;
                 int length = text.Length;
-                foreach(PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.Protein.Substring(0, Math.Min(length, x.Protein.Length)).Equals(text)))
+                foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.Protein.Substring(0, Math.Min(length, x.Protein.Length)).Equals(text)))
                 {
                     PeptidesToDisplay.Add(peptide);
                 }
@@ -517,14 +522,116 @@ namespace AppleTurnover
                 {
                     PeptidesToDisplay.Add(peptide);
                 }
-            }           
+            }
 
             DisplayedSamplesDataGrid.Items.Refresh();
             HiddenSamplesDataGrid.Items.Refresh();
 
-            UpdatePlot();
+            UpdatePeptidePlots();
         }
 
+        private void AnalyzedFilesGrid_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
+        {
+            if (DisplayAnalyzedFilesDataGrid.SelectedItem == null)
+            {
+                return;
+            }
+
+            //plot the precision scatter plot and the half-life histogram for this file
+            string dataFile = ((RawDataForDataGrid)DisplayAnalyzedFilesDataGrid.SelectedItem).FilePath;
+            List<PeptideTurnoverObject> peptidesForThisFile = PeptidesToDisplay.Where(x => x.FileName.Equals(dataFile)).ToList();
+            if (PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
+            {
+                PoolParameters poolParams = PoolParameterDictionary[dataFile];
+                PlotPrecisionScatterPlot(peptidesForThisFile, poolParams);
+                MessageBox.Show("Scatter");
+                PlotHalfLifeHistogram(peptidesForThisFile);
+                MessageBox.Show("Histogram");
+            }
+        }
+
+        private void PlotPrecisionScatterPlot(List<PeptideTurnoverObject> peptidesToPlot, PoolParameters poolParams)
+        {
+            PrecisionPlot.plt.Clear();
+            PrecisionPlot.plt.GetPlottables().Clear();
+
+            if (peptidesToPlot.Count == 0)
+            {
+                return;
+            }
+
+            Dictionary<double, List<(double halfLife, double relativeFraction)>> dictionaryToPlot = new Dictionary<double, List<(double halfLife, double relativeFraction)>>();
+
+            foreach (PeptideTurnoverObject peptide in peptidesToPlot)
+            {
+                //grab measurements
+                double halfLife = Math.Log(2, Math.E) / peptide.Kbi;
+                for (int i = 0; i < peptide.Timepoints.Length; i++)
+                {
+                    if (dictionaryToPlot.ContainsKey(peptide.Timepoints[i]))
+                    {
+                        dictionaryToPlot[peptide.Timepoints[i]].Add((halfLife, peptide.RelativeFractions[i]));
+                    }
+                    else
+                    {
+                        dictionaryToPlot[peptide.Timepoints[i]] = new List<(double halfLife, double relativeFraction)> { (halfLife, peptide.RelativeFractions[i]) };
+                    }
+                }
+            }
+
+            //plot all peptide data
+            double[] timepoints = dictionaryToPlot.Keys.OrderBy(x => x).ToArray();
+            foreach (double timepoint in timepoints)
+            {
+                var value = dictionaryToPlot[timepoint];
+                PrecisionPlot.plt.PlotScatter(value.Select(x => x.halfLife).ToArray(), value.Select(x => x.relativeFraction).ToArray(), lineWidth: 0, markerSize: 1, label: timepoint.ToString());
+            }
+
+            //plt fits for each timepoint on top of the peptide data
+            double[] halflives = new double[500];
+            for (int i = 0; i < halflives.Length; i++)
+            {
+                halflives[i] = i / 5.0;
+            }
+
+            List<double> halfLivesToPlot = new List<double>();
+            List<double> relativeFractionsToPlot = new List<double>();
+
+            foreach (double halflife in halflives)
+            {
+                //halflife = ln(2)/kbi
+                //kbi = ln(2)/halflife
+                double[] rfsForThisHalfLife = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(poolParams.Kst, poolParams.Kbt, poolParams.Koa, Math.Log(2, Math.E) / halflife, timepoints);
+                for (int i = 0; i < timepoints.Length; i++)
+                {
+                    halfLivesToPlot.Add(halflife);
+                    relativeFractionsToPlot.Add(rfsForThisHalfLife[i]);
+                }
+            }
+            PrecisionPlot.plt.PlotScatter(halfLivesToPlot.ToArray(), relativeFractionsToPlot.ToArray(), Color.Black, 1, 0);
+
+            //RatioComparisonPlot.plt.Layout(xLabelHeight: 40, y2LabelWidth: 20);
+            PrecisionPlot.plt.YLabel("New/Total");
+            PrecisionPlot.plt.XLabel("Half-life (Days)");
+            PrecisionPlot.plt.Axis(0, 50, 0, 1);
+            PrecisionPlot.Render();
+        }
+    
+        private void PlotHalfLifeHistogram(List<PeptideTurnoverObject> peptidesToPlot)
+        {
+            HalfLifeHistogramPlot.plt.Clear();
+            HalfLifeHistogramPlot.plt.GetPlottables().Clear();
+            double[] halflives = peptidesToPlot.Select(x => Math.Log(2, Math.E) / x.Kbi).ToArray();
+            Histogram histogram = new Histogram(halflives, min: 0, max: 100);
+
+            double barWidth = histogram.binSize * 1.2; // slightly over-side to reduce anti-alias rendering artifacts
+
+            HalfLifeHistogramPlot.plt.PlotBar(histogram.bins, histogram.counts, barWidth: barWidth, outlineWidth: 0);
+            HalfLifeHistogramPlot.plt.YLabel("Frequency (# peptides)");
+            HalfLifeHistogramPlot.plt.XLabel("Half-life (days)");
+            HalfLifeHistogramPlot.plt.Axis(0, 100, 0, null);
+            HalfLifeComparisonPlot.Render();
+        }
         //private void OpenOutputFolder_Click(object sender, RoutedEventArgs e)
         //{
         //    string outputFolder = OutputFolderTextbox.Text;

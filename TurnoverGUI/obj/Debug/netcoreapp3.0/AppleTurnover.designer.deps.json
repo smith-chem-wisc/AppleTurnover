@@ -276,26 +276,26 @@
           }
         }
       },
-      "ScottPlot/4.0.23": {
+      "ScottPlot/4.0.31": {
         "dependencies": {
           "System.Drawing.Common": "4.7.0",
           "runtime.osx.10.10-x64.CoreCompat.System.Drawing": "5.8.64"
         },
         "runtime": {
           "lib/netstandard2.0/ScottPlot.dll": {
-            "assemblyVersion": "4.0.23.0",
-            "fileVersion": "4.0.23.0"
+            "assemblyVersion": "4.0.31.0",
+            "fileVersion": "4.0.31.0"
           }
         }
       },
-      "ScottPlot.WPF/4.0.23": {
+      "ScottPlot.WPF/4.0.31": {
         "dependencies": {
-          "ScottPlot": "4.0.23"
+          "ScottPlot": "4.0.31"
         },
         "runtime": {
           "lib/netcoreapp3.0/ScottPlot.WPF.dll": {
-            "assemblyVersion": "4.0.23.0",
-            "fileVersion": "4.0.23.0"
+            "assemblyVersion": "4.0.31.0",
+            "fileVersion": "4.0.31.0"
           }
         }
       },
@@ -667,19 +667,19 @@
       "path": "runtime.osx.10.10-x64.corecompat.system.drawing/5.8.64",
       "hashPath": "runtime.osx.10.10-x64.corecompat.system.drawing.5.8.64.nupkg.sha512"
     },
-    "ScottPlot/4.0.23": {
+    "ScottPlot/4.0.31": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-h5CRtygMXTzBnAWAjo6YLyarXT4W3MDeaI6NS60cyu/BKnxJmAuuPhWJTt6SVa7dMrVQs4VdHxd79d1eyDRocA==",
-      "path": "scottplot/4.0.23",
-      "hashPath": "scottplot.4.0.23.nupkg.sha512"
+      "sha512": "sha512-Nq29n1tCr+G24xTPTKBOrqEMPalA67AW2snRTXMMB4aRFJ8xRlUnl1EIExrB9uTTFP5dAnz3ZFeds657zQ9nXg==",
+      "path": "scottplot/4.0.31",
+      "hashPath": "scottplot.4.0.31.nupkg.sha512"
     },
-    "ScottPlot.WPF/4.0.23": {
+    "ScottPlot.WPF/4.0.31": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-a94S95jsCA5/TAKpJ2UwQ2OpiOItn5JOryoiVZdwuFs2xQlb4wZvFrvl3XwQNhqueFsqKK95Skt9NaDk1typVg==",
-      "path": "scottplot.wpf/4.0.23",
-      "hashPath": "scottplot.wpf.4.0.23.nupkg.sha512"
+      "sha512": "sha512-HMlxbBnELPLSswAMmKI6vTypKdmk6uvE9G74GK8TaCgiWfjkzpRbxbfij9mlolGqWb297OH9KC2ImebbAy9mKA==",
+      "path": "scottplot.wpf/4.0.31",
+      "hashPath": "scottplot.wpf.4.0.31.nupkg.sha512"
     },
     "SharpLearning.Common.Interfaces/0.28.0": {
       "type": "package",

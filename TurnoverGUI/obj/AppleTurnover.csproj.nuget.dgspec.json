@@ -48,11 +48,11 @@
             },
             "ScottPlot": {
               "target": "Package",
-              "version": "[4.0.23, )"
+              "version": "[4.0.31, )"
             },
             "ScottPlot.WPF": {
               "target": "Package",
-              "version": "[4.0.23, )"
+              "version": "[4.0.31, )"
             },
             "mzLib": {
               "target": "Package",

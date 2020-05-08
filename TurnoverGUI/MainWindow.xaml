@@ -16,8 +16,7 @@
                     <RowDefinition Height="125"/>
                     <RowDefinition Height="135"/>
                     <RowDefinition Height="100"/>
-                    <RowDefinition Height="850"/>
-                    <RowDefinition Height="30"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <GroupBox Header="Database(s) (.fasta or .xml)" Grid.Row="0"  Name="databaseFilesGroupBox">
@@ -120,8 +119,8 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Grid.Row="1">
                             <Label x:Name="SearchEngineLabel" Content="Search Engine Used:" Margin="10 0 10 0"/>
-                            <RadioButton x:Name="MaxQuantRadioButton" Content="MaxQuant" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
                             <RadioButton x:Name="MetaMorpheusRadioButton" Content="MetaMorpheus" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
+                            <RadioButton x:Name="MaxQuantRadioButton" Content="MaxQuant" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
                 </GroupBox>
@@ -169,8 +168,34 @@
                     </StackPanel>
 
                 </StackPanel>
-                <Expander Header="Visualization" DockPanel.Dock="Top" Margin="10,0,10,10" Grid.Row="3">
-                    <Grid Grid.Row="3">
+
+                <StackPanel Grid.Row="3" Orientation="Vertical">
+                    <Expander Header="Global Visualization" DockPanel.Dock="Top" Margin="10,0,10,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Vertical" Grid.Column="0">
+                                <Label Content="Select a file to visualize its data" Margin="10,0,10,0"/>
+                                <DataGrid x:Name="DisplayAnalyzedFilesDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding}" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="10,0,10,0" Height="275"
+                                        SelectedCellsChanged="AnalyzedFilesGrid_SelectedCellsChanged" CanUserDeleteRows="false" CanUserAddRows="false">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="File" Binding="{Binding BindsDirectlyToSource=True}"></DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                            <ScottPlot:WpfPlot Name="PrecisionPlot" Height="300" Margin="10 10 10 10" Grid.Column="1"/>
+                            <ScottPlot:WpfPlot Name="HalfLifeHistogramPlot" Height="300" Margin="10 10 10 10" Grid.Column="2"/>
+                        </Grid>
+                        <!--make the rapid validation scatter-->
+                        
+                        <!--make the histogram-->
+                    </Expander>
+                    <Expander Header="Peptide/Protein-Specific Visualization" DockPanel.Dock="Top" Margin="10,0,10,10">
+
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="5*"/>
@@ -181,8 +206,8 @@
                                     <Label x:Name="SearchLabel" Content="Protein Lookup:" Margin="11 5 0 5"/>
                                     <TextBox x:Name="ProteinSearchTextBox" TextChanged="ProteinSearchTextBox_TextChanged" Width="75" HorizontalAlignment="Left" Margin="0 5 0 5"/>
                                 </StackPanel>
-                                    <DataGrid x:Name="DisplayPeptidesDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding}" 
-                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="10,0,10,0" Height="600"
+                                <DataGrid x:Name="DisplayPeptidesDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding}" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="10,0,10,0" Height="780"
                                         SelectedCellsChanged="PeptideDataGrid_SelectedCellsChanged" CanUserDeleteRows="false" CanUserAddRows="false">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Peptide" Binding="{Binding FullSequence}"></DataGridTextColumn>
@@ -203,34 +228,33 @@
                                             <ColumnDefinition Width="3*"/>
                                         </Grid.ColumnDefinitions>
                                         <DataGrid x:Name="HiddenSamplesDataGrid" Grid.Row="0" AutoGenerateColumns="False" VerticalAlignment="Stretch" ItemsSource="{Binding}" 
-                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,0,0,0" Height="75"
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,36,0,0" Height="75"
                                         CanUserDeleteRows="false" CanUserAddRows="false">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Hidden Samples " Binding="{Binding BindsDirectlyToSource=True}"></DataGridTextColumn>
                                             </DataGrid.Columns>
                                         </DataGrid>
-                                        <Button x:Name="ChangeSamplesDisplayed" Grid.Column="1" Height="50" Width="70" HorizontalAlignment="Center" VerticalAlignment="Center" Click="ChangeFilesToPlot_Click">
+                                        <Button x:Name="ChangeSamplesDisplayed" Margin="0,35,0,0" Grid.Column="1" Height="50" Width="70" HorizontalAlignment="Center" VerticalAlignment="Center" Click="ChangeFilesToPlotSpecificData_Click">
                                             <TextBlock TextWrapping="Wrap" TextAlignment="Center">Move Selected File(s)</TextBlock>
                                         </Button>
                                         <DataGrid x:Name="DisplayedSamplesDataGrid" Grid.Column="2" AutoGenerateColumns="False" VerticalAlignment="Stretch" ItemsSource="{Binding}" 
-                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,0,0,0" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,35,0,0" 
                                         CanUserDeleteRows="false" CanUserAddRows="false">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Displayed Samples " Binding="{Binding  BindsDirectlyToSource=True}"></DataGridTextColumn>
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </Grid>
-                                    <CheckBox x:Name="PlotCICheckBox" Content="Plot Confidence Intervals" Margin="10 10 10 0" Click="ChangeFilesToPlot_Click" IsChecked="True"/>
-                                    <CheckBox x:Name="PlotAminoAcidPoolCheckBox" Content="Show Free Amino Acid Ratios" Margin="10 0 10 0" Click="ChangeFilesToPlot_Click" IsChecked="True"/>
+                                    <CheckBox x:Name="PlotCICheckBox" Content="Plot Confidence Intervals" Margin="10 10 10 0" Click="ChangeFilesToPlotSpecificData_Click" IsChecked="True"/>
+                                    <CheckBox x:Name="PlotAminoAcidPoolCheckBox" Content="Show Free Amino Acid Ratios" Margin="10 0 10 0" Click="ChangeFilesToPlotSpecificData_Click" IsChecked="True"/>
                                     <Label Name="ComparisonLabel"  Margin="20 0 20 0" FontSize="16" HorizontalAlignment="Center" FontWeight="Bold"/>
                                     <ScottPlot:WpfPlot Name="RatioComparisonPlot" Height="330" Margin="0 0 0 10"/>
                                     <ScottPlot:WpfPlot Name="HalfLifeComparisonPlot" Height="330" Margin="0 10 0 0"/>
                                 </StackPanel>
                             </Grid>
                         </Grid>
-                    </Grid>
-                </Expander>
-
+                    </Expander>
+                </StackPanel>
                 <!--<StackPanel Grid.Row="4">
             <DockPanel Margin="5" Grid.Row="4" LastChildFill="True">
                 <Button x:Name="OpenOutputFolderButton" Content="Open" Width="40" DockPanel.Dock="Right" Click="OpenOutputFolder_Click"></Button>
@@ -239,8 +263,6 @@
             </DockPanel>
         </StackPanel>-->
 
-                <StackPanel Grid.Row="5">
-                </StackPanel>
             </Grid>
         </DockPanel>
     </ScrollViewer>

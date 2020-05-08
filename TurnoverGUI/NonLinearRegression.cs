@@ -440,7 +440,6 @@ namespace AppleTurnover
             return new PoolParameters(bestKst, bestKbt, bestKoa);
         }
         
-
         public static void OptimizeFit(double[] bestVariables, double kst, double kbt, double koa, PeptideTurnoverObject peptide )
         {
             bool optimizing = true;
@@ -912,7 +911,6 @@ namespace AppleTurnover
             }
             return predictedValues;
         }
-
 
         public static void UpdateKbiConfidenceInterval(double kst, double kbt, double koa, PeptideTurnoverObject peptide, double ITERATIVE_SHIFT)
         {
