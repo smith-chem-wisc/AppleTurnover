@@ -26,11 +26,15 @@ namespace AppleTurnover
         public Dictionary<int, string> ModDictionary { get; set; }
         public string ErrorString { get; private set; }
         public string FileName { get; set; }
+        public double[] MonteCarloKbis { get; set; }
 
         public PeptideTurnoverObject(string fullSequence, double[] timepoints, double[] rFValues, string[] filenames, double[] intensities, double totalIntensity, string fileName, string protein = "")
         {
+            if (fullSequence.Contains('"'))
+            { fullSequence = fullSequence.Replace("\"", ""); } //weird bug that sometimes occurs in file loading
             FullSequence = fullSequence;
             BaseSequence = CleanSeq(fullSequence);
+
             Protein = protein;
 
             //sort by timepoints

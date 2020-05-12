@@ -9,6 +9,7 @@
       "AppleTurnover/1.0.0": {
         "dependencies": {
           "LiveCharts.Wpf": "0.9.7",
+          "Meta.Numerics": "4.0.7",
           "ScottPlot": "4.0.31",
           "ScottPlot.WPF": "4.0.31",
           "mzLib": "1.0.469"
@@ -52,6 +53,14 @@
           "lib/netstandard2.0/MathNet.Numerics.dll": {
             "assemblyVersion": "4.8.1.0",
             "fileVersion": "4.8.1.0"
+          }
+        }
+      },
+      "Meta.Numerics/4.0.7": {
+        "runtime": {
+          "lib/netstandard1.1/Meta.Numerics.dll": {
+            "assemblyVersion": "4.0.7.0",
+            "fileVersion": "4.0.7.0"
           }
         }
       },
@@ -525,6 +534,13 @@
       "sha512": "sha512-HK97Btmlx8WLioRpWpyO3kCpvm3y9n4WzgFDQxaxUP9zbScOxB6JevGyGydcDtVDDPC4Gtv4u/j7pQjK6N+sUA==",
       "path": "mathnet.numerics/4.8.1",
       "hashPath": "mathnet.numerics.4.8.1.nupkg.sha512"
+    },
+    "Meta.Numerics/4.0.7": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xajKsI3hjhefur6FfDRxZwS+w45LNLuLqbEMQvF81tq2HpGUSxj8XW9hSD+4dCkqV/A/Dqv790+Z+U+m9kUb6w==",
+      "path": "meta.numerics/4.0.7",
+      "hashPath": "meta.numerics.4.0.7.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/3.1.0": {
       "type": "package",

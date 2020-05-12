@@ -46,6 +46,10 @@
               "target": "Package",
               "version": "[0.9.7, )"
             },
+            "Meta.Numerics": {
+              "target": "Package",
+              "version": "[4.0.7, )"
+            },
             "ScottPlot": {
               "target": "Package",
               "version": "[4.0.31, )"

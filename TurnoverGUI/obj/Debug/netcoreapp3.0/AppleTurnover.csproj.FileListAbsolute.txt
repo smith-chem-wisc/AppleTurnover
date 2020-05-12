@@ -67,3 +67,4 @@ E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover.csp
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover.dll
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover.pdb
 E:\Chemistry\AppleTurnover\TurnoverGUI\obj\Debug\netcoreapp3.0\AppleTurnover.genruntimeconfig.cache
+E:\Chemistry\AppleTurnover\TurnoverGUI\bin\Debug\netcoreapp3.0\Meta.Numerics.dll

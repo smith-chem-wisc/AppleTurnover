@@ -414,6 +414,7 @@ namespace AppleTurnover
                     if (!currentPeptide.BaseSequence.Equals(mostRecentBaseSequence))
                     {
                         mostRecentBaseSequence = currentPeptide.BaseSequence;
+
                         //find proteins containing this sequence
                         //List<Protein> proteinsContainingThisSeq = theoreticalProteins.Where(x => x.BaseSequence.Contains(mostRecentBaseSequence)).OrderBy(x => x.Accession).ToList();
                         List<Protein> proteinsContainingThisSeq = new List<Protein>();

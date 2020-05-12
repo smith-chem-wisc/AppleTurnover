@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "eHr4x7P9/N/oDjpnBwhIQE96wDgpM+XARMim0mIqUXjMGIoLKoL3L5H0/I1ZmLuhxxchCNPLqIkPbNoYS93pxg==",
+  "dgSpecHash": "+skJJnG8tAM87MsqMzgUXDaz/5p0vqJQ8y+h9HwD5swPwjFsay7U/JLVMdM6Mq4+YyYClIcTlqMZ3B//62pkzg==",
   "success": true,
   "projectFilePath": "E:\\Chemistry\\AppleTurnover\\TurnoverGUI\\AppleTurnover.csproj",
   "expectedPackageFiles": [
@@ -8,6 +8,7 @@
     "C:\\Users\\zrolf\\.nuget\\packages\\livecharts\\0.9.7\\livecharts.0.9.7.nupkg.sha512",
     "C:\\Users\\zrolf\\.nuget\\packages\\livecharts.wpf\\0.9.7\\livecharts.wpf.0.9.7.nupkg.sha512",
     "C:\\Users\\zrolf\\.nuget\\packages\\mathnet.numerics\\4.8.1\\mathnet.numerics.4.8.1.nupkg.sha512",
+    "C:\\Users\\zrolf\\.nuget\\packages\\meta.numerics\\4.0.7\\meta.numerics.4.0.7.nupkg.sha512",
     "C:\\Users\\zrolf\\.nuget\\packages\\microsoft.netcore.platforms\\3.1.0\\microsoft.netcore.platforms.3.1.0.nupkg.sha512",
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
     "C:\\Users\\zrolf\\.nuget\\packages\\microsoft.win32.registry\\4.6.0\\microsoft.win32.registry.4.6.0.nupkg.sha512",

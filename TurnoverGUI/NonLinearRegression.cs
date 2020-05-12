@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace AppleTurnover
 {
-    public class NonLinearRegression
+    public static class NonLinearRegression
     {
         private static readonly string ParameterSaveFile = "_FittedParameters.txt";
 
@@ -48,6 +48,11 @@ namespace AppleTurnover
                 double ksto = 0.7;
                 double kbto = 0.026;
                 double koao = 2.0;
+
+                //new values are doubled to simulate faster rate of transfer. Prevents issues of fitting to the fastest peptide
+                //double ksto = 1.4;
+                //double kbto = 0.052;
+                //double koao = 4.0;
                 List<double> kstList = new List<double>();
                 List<double> kbtList = new List<double>();
                 List<double> koaList = new List<double>();
@@ -436,7 +441,9 @@ namespace AppleTurnover
                 linesToWrite.Add(peptide.FullSequence + '\t' + peptide.Protein + '\t' + (Math.Log(2,Math.E)/peptide.Kbi).ToString() + '\t' + (Math.Log(2, Math.E) / peptide.HighKbi).ToString() + '\t' + (Math.Log(2, Math.E) / peptide.LowKbi).ToString() + '\t' + peptide.Error.ToString() + '\t' + peptide.TotalIntensity.ToString() + '\t' + peptide.Timepoints.Length.ToString());
             }
             //output each peptide with its sequence, kbi, 95% confidence interval, and protein
-            File.WriteAllLines(Path.Combine(directory, filename + "_TurnoverResults.txt"), linesToWrite);
+            File.WriteAllLines(Path.Combine(directory, filename + "_PeptideTurnoverResults.tsv"), linesToWrite);
+
+
             return new PoolParameters(bestKst, bestKbt, bestKoa);
         }
         
@@ -1050,8 +1057,67 @@ namespace AppleTurnover
             Array.Sort(bootstrapKbis);
             peptide.LowKbi = bootstrapKbis[lowPercentile]; //2.5 percentile
             peptide.HighKbi = bootstrapKbis[highPercentile]; //97.5 percentile
+            peptide.MonteCarloKbis = bootstrapKbis;
         }
 
+        public static List<PeptideTurnoverObject> GetProteinInfo(List<PeptideTurnoverObject> peptides, string filePath)
+        {
+            //group peptides by protein
+            List<PeptideTurnoverObject> proteinsToReturn = new List<PeptideTurnoverObject>();
+            var proteinGroups = peptides.GroupBy(x => x.Protein).ToList();
+            foreach(var group in proteinGroups)
+            {
+                string proteinName = group.Key;
+                var peptidesForThisProtein = group.OrderBy(x=>x.BaseSequence).ThenBy(x=>x.FullSequence).ToList();
+                List<double> kbis = new List<double>();
+                List<double> timepoints = new List<double>();
+                List<double> rfs = new List<double>();
+                List<string> filenames = new List<string>();
+                List<double> intensities = new List<double>();
+                double intensity = 0;
+                string allPeptideSequences = "";
+                foreach(var peptide in peptidesForThisProtein)
+                {
+                    kbis.AddRange(peptide.MonteCarloKbis);
+                    timepoints.AddRange(peptide.Timepoints);
+                    rfs.AddRange(peptide.RelativeFractions);
+                    filenames.AddRange(peptide.Filenames);
+                    intensities.AddRange(peptide.Intensities);
+                    intensity += peptide.TotalIntensity;
+                    allPeptideSequences += peptide.FullSequence+";";
+                }
+                //keep excel compatible
+                if(allPeptideSequences.Length>10000)
+                {
+                    allPeptideSequences = "Too Many Sequences";
+                }
+                kbis.Sort();
+                //get important measurements
+                PeptideTurnoverObject protein = new PeptideTurnoverObject(allPeptideSequences, timepoints.ToArray(), rfs.ToArray(), 
+                    filenames.ToArray(), intensities.ToArray(), intensity, peptides.First().FileName, proteinName);
+                protein.Kbi = kbis[kbis.Count / 2];
+                protein.LowKbi = kbis[(int)Math.Round(kbis.Count * 2.5 / 100)]; //2.5 percentile
+                protein.HighKbi = kbis[(int)Math.Round(kbis.Count * 97.5 / 100)]; //97.5 percentile
+                protein.MonteCarloKbis = kbis.ToArray();
+                protein.Error = peptidesForThisProtein.Count; //not the actual error
+                proteinsToReturn.Add(protein);
+            }
+
+            string directory = Directory.GetParent(filePath).FullName;
+            string filename = Path.GetFileNameWithoutExtension(filePath);
+
+            List<string> linesToWrite = new List<string>();
+            linesToWrite.Add("Protein\tHalf Life\tLowerConfidenceInterval\tUpperConfidenceInterval\tSummed Intensity\tNumber of Ratios\tNumber of Peptides\tPeptideSequences");
+            foreach (PeptideTurnoverObject protein in proteinsToReturn)
+            {
+                linesToWrite.Add(protein.Protein + '\t' + (Math.Log(2, Math.E) / protein.Kbi).ToString() + '\t' + (Math.Log(2, Math.E) / protein.HighKbi).ToString() + '\t' + (Math.Log(2, Math.E) / protein.LowKbi).ToString() + protein.TotalIntensity.ToString() + '\t' + protein.Timepoints.Length.ToString() + '\t' + protein.Error.ToString()+'\t'+protein.FullSequence);
+            }
+
+            //output each peptide with its sequence, kbi, 95% confidence interval, and protein
+            File.WriteAllLines(Path.Combine(directory, filename + "_ProteinTurnoverResults.tsv"), linesToWrite);
+
+            return proteinsToReturn;
+        }
 
         /// <summary>
         /// Given a probability, a mean, and a standard deviation, an x value can be calculated.
