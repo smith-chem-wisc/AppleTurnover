@@ -127,9 +127,10 @@
                 <StackPanel Grid.Row="2">
                     <Grid Margin="0 10 0 10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="2*"/>
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Orientation="Horizontal" Margin="5 5 5 0" Grid.Column="0">
@@ -153,6 +154,13 @@
                             </TextBox>
                         </StackPanel>
                         <CheckBox x:Name="UseBadRatiosCheckBox" Grid.Column="2" Content="Use Missing Value Ratios" Margin="10 9 5 0" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500" HorizontalAlignment="Center">
+                            <CheckBox.ToolTip>
+                                <TextBlock>
+                              Allows for data to be used if only the heavy or the light was quantified, producing ratios of 1:0, 0:1, 0.5:0.5, etc. When unchecked, at least two versions (light and heavy, light-light and heavy-light, etc) are required per sample.
+                                </TextBlock>
+                            </CheckBox.ToolTip>
+                        </CheckBox>
+                        <CheckBox x:Name="RemoveBadPeptidesCheckBox" Grid.Column="3" Content="Remove Messy Peptides" Margin="10 9 5 0" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500" HorizontalAlignment="Center">
                             <CheckBox.ToolTip>
                                 <TextBlock>
                               Allows for data to be used if only the heavy or the light was quantified, producing ratios of 1:0, 0:1, 0.5:0.5, etc. When unchecked, at least two versions (light and heavy, light-light and heavy-light, etc) are required per sample.
@@ -247,7 +255,8 @@
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </Grid>
-                                    <CheckBox x:Name="PlotCICheckBox" Content="Plot Confidence Intervals" Margin="10 10 10 0" Click="ChangeFilesToPlotSpecificData_Click" IsChecked="True"/>
+                                    <CheckBox x:Name="PlotBestFitCheckBox" Content="Plot Best Fit" Margin="10 10 10 0" Click="ChangeFilesToPlotSpecificData_Click" IsChecked="True"/>
+                                    <CheckBox x:Name="PlotCICheckBox" Content="Plot Confidence Intervals" Margin="10 0 10 0" Click="ChangeFilesToPlotSpecificData_Click" IsChecked="True"/>
                                     <CheckBox x:Name="PlotAminoAcidPoolCheckBox" Content="Show Free Amino Acid Ratios" Margin="10 0 10 0" Click="ChangeFilesToPlotSpecificData_Click" IsChecked="True"/>
                                     <Label Name="ComparisonLabel"  Margin="20 0 20 0" FontSize="16" HorizontalAlignment="Center" FontWeight="Bold"/>
                                     <ScottPlot:WpfPlot Name="RatioComparisonPlot" Height="330" Margin="0 0 0 10"/>

@@ -64,6 +64,7 @@ namespace AppleTurnover
             UseBadRatiosCheckBox.IsChecked = defaultSettings.UseBadRatios;
             MaxQuantRadioButton.IsChecked = defaultSettings.UpstreamProgram == Settings.SearchEngine.MaxQuant;
             MetaMorpheusRadioButton.IsChecked = defaultSettings.UpstreamProgram == Settings.SearchEngine.MetaMorpheus;
+            RemoveBadPeptidesCheckBox.IsChecked = defaultSettings.RemoveMessyPeptides;
         }
 
         private void Window_Drop(object sender, DragEventArgs e)
@@ -172,6 +173,7 @@ namespace AppleTurnover
             MetaMorpheusRadioButton.IsEnabled = AllowFileDrop;
             MaxQuantRadioButton.IsEnabled = AllowFileDrop;
             OutputFigures.IsEnabled = AllowFileDrop;
+            RemoveBadPeptidesCheckBox.IsEnabled = AllowFileDrop;
         }
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
@@ -244,7 +246,7 @@ namespace AppleTurnover
                         }
                             //Fit data to model, get half lives, confidence intervals
                             (sender as BackgroundWorker).ReportProgress(0, "Analyzing File " + status.ToString() + "/" + maxStatus + "...");
-                        PoolParameters poolParams = NonLinearRegression.RegressionAnalysis(peptides, file);
+                        PoolParameters poolParams = NonLinearRegression.RegressionAnalysis(peptides, file, settings);
                         //get protein info
                         AnalyzedProteins.AddRange(NonLinearRegression.GetProteinInfo(peptides, file));
                         PoolParameterDictionary.Add(file, poolParams);
@@ -267,7 +269,9 @@ namespace AppleTurnover
                     }
 
                     (sender as BackgroundWorker).ReportProgress(0, "Running Statistics");
-                    TTest.CompareProteinsAcrossFiles(quantifiedPeptideInputFiles, AnalyzedProteins);
+                    TTest.CompareProteinsAcrossFiles(quantifiedPeptideInputFiles, AnalyzedProteins, PoolParameterDictionary);
+
+                    TTest.CompareProteoformsWithinFiles(quantifiedPeptideInputFiles, AnalyzedProteins, PoolParameterDictionary);
 
                     (sender as BackgroundWorker).ReportProgress(0, "Finished!");
                 }
@@ -333,7 +337,7 @@ namespace AppleTurnover
                 RatioComparisonPlot.plt.Axis(0, 100, 0, 1);
                 RatioComparisonPlot.plt.Ticks(fontSize: 18);
                 RatioComparisonPlot.plt.PlotScatter(timepoints, rfs, label: label, markerShape: ScottPlot.MarkerShape.none);
-                RatioComparisonPlot.plt.Legend(fontSize: 8);
+          //      RatioComparisonPlot.plt.Legend(fontSize: 8);
                 RatioComparisonPlot.Render();
             });
         }
@@ -429,6 +433,7 @@ namespace AppleTurnover
         private void PlotPeptideData(List<PeptideTurnoverObject> peptidesToPlot)
         {
             RatioComparisonPlot.plt.Clear();
+            RatioComparisonPlot.plt.Legend(false);
             HalfLifeComparisonPlot.plt.GetPlottables().Clear();
             if (PlotAminoAcidPoolCheckBox.IsChecked.Value)
             {
@@ -450,14 +455,6 @@ namespace AppleTurnover
                 RatioComparisonPlot.plt.Title(peptide.FullSequence, fontSize: 24);
                 //plot actual data
                 RatioComparisonPlot.plt.PlotScatter(peptide.Timepoints, peptide.RelativeFractions, markerSize:4, lineWidth: 0, label: "Observed Ratios");
-                //plot the fit
-                PlotFit(PoolParameterDictionary[peptide.FileName], "Fit (MSE: " + peptide.Error.ToString("0.0E0") + ")", peptide.Kbi);
-                //plt the confidence intervals
-                if (PlotCICheckBox.IsChecked.Value)
-                {
-                    PlotFit(PoolParameterDictionary[peptide.FileName], ("Upper CI"), peptide.LowKbi);
-                    PlotFit(PoolParameterDictionary[peptide.FileName], ("Lower CI"), peptide.HighKbi);
-                }
 
                 //Plot protein info
                 string protein = peptide.Protein;
@@ -495,6 +492,28 @@ namespace AppleTurnover
  
                 HalfLifeComparisonPlot.plt.Axis(errors.Min() - errorDiff*0.2, errors.Max() + errorDiff * 0.2, halfLives.Min() - negativeErrors.Max() - halflifeDiff * 0.2, halfLives.Max() + positiveErrors.Max() + halflifeDiff * 0.2);
                 HalfLifeComparisonPlot.plt.Axis();
+
+                PeptideTurnoverObject currentProtein = AnalyzedProteins.Where(x => x.Protein.Equals(protein) && x.FileName.Equals(peptide.FileName)).FirstOrDefault();
+
+                //plot the fit
+                if (PlotBestFitCheckBox.IsChecked.Value)
+                {
+                    //peptide level
+                    PlotFit(PoolParameterDictionary[peptide.FileName], "Fit (MSE: " + peptide.Error.ToString("0.0E0") + ")", peptide.Kbi);
+                    //protein level
+                    HalfLifeComparisonPlot.plt.PlotHLine(Math.Log(2, Math.E) / currentProtein.Kbi);
+                }
+                //plt the confidence intervals
+                if (PlotCICheckBox.IsChecked.Value)
+                {
+                    //peptide level
+                    PlotFit(PoolParameterDictionary[peptide.FileName], ("Upper CI"), peptide.LowKbi);
+                    PlotFit(PoolParameterDictionary[peptide.FileName], ("Lower CI"), peptide.HighKbi);
+                    //protein level
+                    HalfLifeComparisonPlot.plt.PlotHLine(Math.Log(2, Math.E) / currentProtein.LowKbi);
+                    HalfLifeComparisonPlot.plt.PlotHLine(Math.Log(2, Math.E) / currentProtein.HighKbi);
+                }
+
                 HalfLifeComparisonPlot.Render();
             }
         }

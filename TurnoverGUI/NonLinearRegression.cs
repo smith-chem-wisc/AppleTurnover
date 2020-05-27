@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Xaml;
 
 namespace AppleTurnover
 {
@@ -21,7 +22,7 @@ namespace AppleTurnover
         private const double MIN_PARAMETER_VALUE = ITERATIVE_SHIFT * 10;
         private const int NUM_TRAINING_POINTS = 100;
 
-        public static PoolParameters RegressionAnalysis(List<PeptideTurnoverObject> peptides, string filePath)
+        public static PoolParameters RegressionAnalysis(List<PeptideTurnoverObject> peptides, string filePath, Settings settings)
         {
             //check if this has already been run
             string directory = Directory.GetParent(filePath).FullName;
@@ -41,8 +42,9 @@ namespace AppleTurnover
             else
             {
                 //initial training set
-                List<PeptideTurnoverObject> trainingPeptides = peptides.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptides.Count));
-
+                List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = peptides.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptides.Count));
+                int halfMaxSamples = peptides.Select(x => x.Timepoints.Count()).Max()/2;
+                List<PeptideTurnoverObject> trainingPeptides = peptides.Where(x => x.Timepoints.Count() >= halfMaxSamples).ToList();
                 List<string> linesOfDifferentStarts = new List<string>();
                 //starting values taken from figure 6b of Guan et al., 2011, Anal. Chem. "Compartment Modeling for Mammalian Protein Turnover Studies by Stable Isotope Metabolic Labeling"
                 double ksto = 0.7;
@@ -59,9 +61,9 @@ namespace AppleTurnover
                 List<double> errors = new List<double>();
 
                 //foreach training point
-                for (int index = 0; index < trainingPeptides.Count; index++)
+                for (int index = 0; index < peptidesToDetermineStartingParameters.Count; index++)
                 {
-                    PeptideTurnoverObject peptide = trainingPeptides[index];
+                    PeptideTurnoverObject peptide = peptidesToDetermineStartingParameters[index];
                     double[] bestVariables = new double[] { ksto, kbto, koao };
                     OptimizeFit(bestVariables, ksto, kbto, koao, peptide);
 
@@ -77,9 +79,9 @@ namespace AppleTurnover
                 double medianError = errors[errors.Count / 2];
                 for (int i = NUM_TRAINING_POINTS - 1; i >= 0; i--)
                 {
-                    if (trainingPeptides[i].Error > medianError)
+                    if (peptidesToDetermineStartingParameters[i].Error > medianError)
                     {
-                        trainingPeptides.RemoveAt(i);
+                        peptidesToDetermineStartingParameters.RemoveAt(i);
                         kstList.RemoveAt(i);
                         kbtList.RemoveAt(i);
                         koaList.RemoveAt(i);
@@ -88,7 +90,7 @@ namespace AppleTurnover
 
                 for (int index = NUM_TRAINING_POINTS; index < peptides.Count; index++)
                 {
-                    if (trainingPeptides.Count == NUM_TRAINING_POINTS)
+                    if (peptidesToDetermineStartingParameters.Count == NUM_TRAINING_POINTS)
                     {
                         break;
                     }
@@ -99,7 +101,7 @@ namespace AppleTurnover
                     //save the fits
                     if (peptide.Error < medianError)
                     {
-                        trainingPeptides.Add(peptide);
+                        peptidesToDetermineStartingParameters.Add(peptide);
                         kstList.Add(bestVariables[0]);
                         kbtList.Add(bestVariables[1]);
                         koaList.Add(bestVariables[2]);
@@ -110,15 +112,15 @@ namespace AppleTurnover
                 //iterate through each of the models with all of the training peptides to determine the best error
                 int bestIndex = 0;
                 double bestModelError = double.PositiveInfinity;
-                for (int modelIndex = 0; modelIndex < trainingPeptides.Count; modelIndex++)
+                for (int modelIndex = 0; modelIndex < peptidesToDetermineStartingParameters.Count; modelIndex++)
                 {
                     double kst = kstList[modelIndex];
                     double kbt = kbtList[modelIndex];
                     double koa = koaList[modelIndex];
                     if (kst < MAX_KST_VALUE - ITERATIVE_SHIFT && kbt < MAX_KBT_VALUE - ITERATIVE_SHIFT && koa < MAX_KOA_VALUE - ITERATIVE_SHIFT)
                     {
-                        UpdateKbi(kst, kbt, koa, trainingPeptides, ITERATIVE_SHIFT);
-                        double error = trainingPeptides.Sum(x => x.Error);
+                        UpdateKbi(kst, kbt, koa, peptidesToDetermineStartingParameters, ITERATIVE_SHIFT);
+                        double error = peptidesToDetermineStartingParameters.Sum(x => x.Error);
                         if (error < bestModelError)
                         {
                             bestModelError = error;
@@ -423,6 +425,25 @@ namespace AppleTurnover
             //optimize for best fit
             UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT / 10);
             UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT / 100);
+
+            //remove messy peptides
+            if(settings.RemoveMessyPeptides)
+            {
+                for(int i=peptides.Count-1; i>=0; i--)
+                {
+                    var peptide = peptides[i];
+                    double[] predictions = PredictRelativeFractionUsingThreeCompartmentModel(bestKst, bestKbt, bestKoa, peptide.Kbi, peptide.Timepoints);
+                    double[] actualValues = peptide.RelativeFractions;
+                    for(int j=0; j<predictions.Length; j++)
+                    {
+                        if(Math.Abs(actualValues[j]-predictions[j])>0.1)
+                        {
+                            peptides.RemoveAt(i);
+                            break;
+                        }
+                    }
+                }
+            }
 
             //use the monte carlo method to estimate the 95% confidence interval
             Parallel.ForEach(Partitioner.Create(0, peptides.Count), new ParallelOptions { MaxDegreeOfParallelism = 8 },
