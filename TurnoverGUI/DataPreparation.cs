@@ -671,7 +671,7 @@ namespace AppleTurnover
 
         public static bool LoadExistingResults(string inputfile, string fileToLoad, Dictionary<string, PoolParameters> poolParameterDictionary, ObservableCollection<PeptideTurnoverObject> peptides, List<PeptideTurnoverObject> proteins)
         {
-            //  try
+            try
             {
                 string[] lines = File.ReadAllLines(fileToLoad);
                 //We need to read in the:
@@ -726,7 +726,7 @@ namespace AppleTurnover
                 }
                 return true;
             }
-            //  catch
+            catch
             {
                 return false;
             }
