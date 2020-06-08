@@ -139,11 +139,8 @@ namespace AppleTurnover
 
                     if (timepointsForThisPeptide.Count >= settings.MinValidValuesTotal)
                     {
-                        //if (protein.Equals("Q9Z2Z6")) //FIXME DEBUG
-                        {
-                            peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
-                                filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
-                        }
+                        peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
+                            filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
                     }
                 }
             }
@@ -248,11 +245,8 @@ namespace AppleTurnover
 
                         if (timepointsForThisPeptide.Count >= settings.MinValidValuesTotal)
                         {
-                            //if (sequence.Equals("Q02788")) //FIXME DEBUG
-                            {
-                                peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
-                                    filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
-                            }
+                            peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
+                                filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
                         }
                     }
                 }
@@ -361,11 +355,8 @@ namespace AppleTurnover
 
                         if (timepointsForThisPeptide.Count >= settings.MinValidValuesTotal)
                         {
-                            //if (protein.Equals("Q9Z2Z6")) //FIXME DEBUG
-                            {
-                                peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
-                                    filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
-                            }
+                            peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
+                                filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
                         }
                     }
                 }
@@ -679,6 +670,7 @@ namespace AppleTurnover
                 double[] poolParams = lines[0].Split('\t').Select(x => Convert.ToDouble(x)).ToArray();
                 poolParameterDictionary[inputfile] = new PoolParameters(poolParams[0], poolParams[1], poolParams[2]);
 
+                //-peptides
                 int i = 1;
                 for (; i < lines.Length; i++)
                 {
