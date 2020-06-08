@@ -35,6 +35,8 @@ namespace AppleTurnover
         private readonly ObservableCollection<string> FilesToHideObservableCollection = new ObservableCollection<string>();
         private Dictionary<string, PoolParameters> PoolParameterDictionary = new Dictionary<string, PoolParameters>();
         private List<PeptideTurnoverObject> AnalyzedProteins = new List<PeptideTurnoverObject>();
+        private List<PeptideTurnoverObject> PeptidesPreviouslyPlotted = new List<PeptideTurnoverObject>();
+        private bool ChangeParamTextBox;
 
         public MainWindow()
         {
@@ -112,11 +114,6 @@ namespace AppleTurnover
                         DataFilesObservableCollection.Add(new RawDataForDataGrid(filepath));
                     }
 
-                    //if (string.IsNullOrWhiteSpace(OutputFolderTextbox.Text))
-                    //{
-                    //    OutputFolderTextbox.Text = Path.Combine(Path.GetDirectoryName(filepath), @"$DATETIME");
-                    //}
-
                     break;
                 case ".fasta":
                 case ".xml":
@@ -178,7 +175,66 @@ namespace AppleTurnover
 
         private void Worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            if (DataFilesObservableCollection.Count != 0 || DatabasesObservableCollection.Count != 0)
+            Dispatcher.Invoke(() =>
+            {
+                FilesToDisplayObservableCollection.Clear();
+                FilesToHideObservableCollection.Clear();
+            });
+
+            //check if we can load old results
+            List<string> quantifiedPeptideInputFiles = DataFilesObservableCollection.Select(x => x.FilePath).ToList();
+            List<string> turnoverResultFiles = new List<string>();
+            foreach (string file in DataFilesObservableCollection.Select(x => x.FilePath))
+            {
+                string inputFile = file;
+                string directory = Directory.GetParent(inputFile).FullName;
+                string filename = Path.GetFileNameWithoutExtension(inputFile);
+                //check the user didn't grab the wrong file
+                if (filename.Contains("_ApplETurnoverSavedSession"))
+                {
+                    filename = filename.Replace("_ApplETurnoverSavedSession", "");
+                    string updatedPath = inputFile.Replace("_ApplETurnoverSavedSession", "");
+                    //if the user grabbed the saved session and the original input file, remove the session
+                    var badFile = DataFilesObservableCollection.Where(x => x.FilePath.Equals(inputFile)).FirstOrDefault();
+
+                    if (DataFilesObservableCollection.Select(x => x.FilePath).Contains(updatedPath))
+                    {
+                        DataFilesObservableCollection.Remove(badFile);
+                    }
+                    else //treat this as the original input file
+                    {
+                        badFile.RemoveSessionTag();
+                    }
+                    inputFile = updatedPath;
+                    Dispatcher.Invoke(() =>
+                    {
+                        dataGridPeptideFiles.CommitEdit(DataGridEditingUnit.Row, true);
+                        dataGridPeptideFiles.Items.Refresh();
+                    });
+                }
+                string resultFile = Path.Combine(directory, filename + "_ApplETurnoverSavedSession.tsv");
+                if (File.Exists(resultFile))
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        FilesToDisplayObservableCollection.Add(inputFile);
+                    });
+
+                    quantifiedPeptideInputFiles.Remove(inputFile); //remove so we don't analyze it again
+                    if (!DataPreparation.LoadExistingResults(inputFile, resultFile, PoolParameterDictionary, AllPeptides, AnalyzedProteins))
+                    {
+                        //something went wrong. Bail, reset, and run normally
+                        quantifiedPeptideInputFiles = DataFilesObservableCollection.Select(x => x.FilePath).ToList();
+                        PoolParameterDictionary.Clear();
+                        FilesToDisplayObservableCollection.Clear();
+                        AllPeptides.Clear();
+                        AnalyzedProteins.Clear();
+                        break;
+                    }
+                }
+            }
+
+            if (quantifiedPeptideInputFiles.Count != 0 && DatabasesObservableCollection.Count != 0)
             {
                 AllowFileDrop = false;
                 Dispatcher.Invoke(() =>
@@ -191,32 +247,11 @@ namespace AppleTurnover
                 try
                 {
                     (sender as BackgroundWorker).ReportProgress(0, "Starting");
-                    //var startTimeForAllFilenames = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture);
 
-                    //Dispatcher.Invoke(() =>
-                    //{
-                    //    string outputFolder = OutputFolderTextbox.Text.Replace("$DATETIME", startTimeForAllFilenames);
-                    //    OutputFolderTextbox.Text = outputFolder;
-
-                    //    if (!Directory.Exists(outputFolder))
-                    //    {
-                    //        Directory.CreateDirectory(outputFolder);
-                    //    }
-                    //});
 
                     Settings settings = GetUserSpecifiedSettings();
 
-                    //TODO: Can't use protein.tsv, has messed up ratios?
-                    //Take median ratio (most intense of the two if tie breaker) (What does MaxQuant do?)
-                    //Flag peptides that are modified and not
-                    //Can't just use base sequence, need to use modification residue
-                    //have to read in the database to do this
-                    //compare across all proteins for possible shared proteins
-                    //interesting to keep track of this info
-                    //do peptides across samples (of the same time point) correlate?
-                    //if reading in multiple, how to determine significant differences?
-
-                    string maxStatus = DataFilesObservableCollection.Count.ToString();
+                    string maxStatus = quantifiedPeptideInputFiles.Count.ToString();
                     int status = 1;
 
                     //reading database
@@ -227,8 +262,6 @@ namespace AppleTurnover
                         PeptidesToDisplay.Clear();
                         AllPeptides.Clear();
                     });
-
-                    List<string> quantifiedPeptideInputFiles = DataFilesObservableCollection.Select(x => x.FilePath).ToList();
 
                     foreach (string file in quantifiedPeptideInputFiles)
                     {
@@ -242,22 +275,28 @@ namespace AppleTurnover
 
                         if (peptides.Count == 0)
                         {
-                            throw new Exception("No peptides were found for file: " + file+"; did you select the correct search engine?");
+                            throw new Exception("No peptides were found for file: " + file + "; did you select the correct search engine?");
                         }
                             //Fit data to model, get half lives, confidence intervals
                             (sender as BackgroundWorker).ReportProgress(0, "Analyzing File " + status.ToString() + "/" + maxStatus + "...");
                         PoolParameters poolParams = NonLinearRegression.RegressionAnalysis(peptides, file, settings);
                         //get protein info
-                        AnalyzedProteins.AddRange(NonLinearRegression.GetProteinInfo(peptides, file));
+                        List<PeptideTurnoverObject> proteins = NonLinearRegression.GetProteinInfo(peptides, file);
+                        AnalyzedProteins.AddRange(proteins);
                         PoolParameterDictionary.Add(file, poolParams);
                         PlotFit(poolParams, "Free Amino Acids");
+
+                        //save results to allow for quick loading in the future
+                        string directory = Directory.GetParent(file).FullName;
+                        string filename = Path.GetFileNameWithoutExtension(file);
+                        string resultFile = Path.Combine(directory, filename + "_ApplETurnoverSavedSession.tsv");
+                        DataPreparation.WriteResults(resultFile, poolParams, peptides, proteins);
 
                         //Add the peptides/proteins to the collection for viewing in the GUI
                         Dispatcher.Invoke(() =>
                         {
                             foreach (PeptideTurnoverObject peptide in peptides)
                             {
-                                peptide.SetErrorString();
                                 AllPeptides.Add(peptide);
                                 PeptidesToDisplay.Add(peptide);
                             }
@@ -287,6 +326,17 @@ namespace AppleTurnover
                     ToggleButtons();
                 });
             }
+            else if (DataFilesObservableCollection.Count() != 0 && AllPeptides.Count != 0) //we had files to analyze but we were able to fast load them
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    foreach (PeptideTurnoverObject peptide in AllPeptides)
+                    {
+                        PeptidesToDisplay.Add(peptide);
+                    }
+                });
+                (sender as BackgroundWorker).ReportProgress(0, "Finished!");
+            }
             else
             {
                 MessageBox.Show("Input files are missing. The run has been stopped.");
@@ -299,25 +349,6 @@ namespace AppleTurnover
             DataFilesObservableCollection.Clear();
             //UpdateOutputFolderTextbox();
         }
-
-        //private void UpdateOutputFolderTextbox()
-        //{
-        //    if (DataFilesObservableCollection.Any())
-        //    {
-        //        // if current output folder is blank and there is a spectra file, use the spectra file's path as the output path
-        //        if (string.IsNullOrWhiteSpace(OutputFolderTextbox.Text))
-        //        {
-        //            var pathOfFirstSpectraFile = Path.GetDirectoryName(DataFilesObservableCollection.First().FilePath);
-        //            OutputFolderTextbox.Text = Path.Combine(pathOfFirstSpectraFile, @"$DATETIME");
-        //        }
-        //        // else do nothing (do not override if there is a path already there; might clear user-defined path)
-        //    }
-        //    else
-        //    {
-        //        // no spectra files; clear the output folder from the GUI
-        //        OutputFolderTextbox.Clear();
-        //    }
-        //}
 
         private void PlotFit(PoolParameters poolParams, string label, double kbi = 1000000) //default kbi is just a very high number to simulate instantaneous turnover (proxy for the available amino acid pool)
         {
@@ -337,7 +368,7 @@ namespace AppleTurnover
                 RatioComparisonPlot.plt.Axis(0, 100, 0, 1);
                 RatioComparisonPlot.plt.Ticks(fontSize: 18);
                 RatioComparisonPlot.plt.PlotScatter(timepoints, rfs, label: label, markerShape: ScottPlot.MarkerShape.none);
-          //      RatioComparisonPlot.plt.Legend(fontSize: 8);
+                //      RatioComparisonPlot.plt.Legend(fontSize: 8);
                 RatioComparisonPlot.Render();
             });
         }
@@ -351,7 +382,8 @@ namespace AppleTurnover
                     int.Parse(MinValidValuesTotalTextBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture),
                     int.Parse(MinValidValuesTimepointTextBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture),
                     UseBadRatiosCheckBox.IsChecked.Value,
-                    MaxQuantRadioButton.IsChecked.Value ? Settings.SearchEngine.MaxQuant : Settings.SearchEngine.MetaMorpheus);
+                    MaxQuantRadioButton.IsChecked.Value ? Settings.SearchEngine.MaxQuant : Settings.SearchEngine.MetaMorpheus,
+                    RemoveBadPeptidesCheckBox.IsChecked.Value);
             });
             return settingsToReturn;
         }
@@ -413,21 +445,28 @@ namespace AppleTurnover
         {
             if (DisplayPeptidesDataGrid.SelectedItem == null)
             {
-                return;
-            }
-
-            // plot the selected peptide/protein
-
-            PeptideTurnoverObject row = (PeptideTurnoverObject)DisplayPeptidesDataGrid.SelectedItem;
-            List<PeptideTurnoverObject> peptidesToPlot = PeptidesToDisplay.Where(x => x.FullSequence.Equals(row.FullSequence) && x.Protein.Equals(row.Protein)).ToList();
-            for (int i = peptidesToPlot.Count - 1; i >= 0; i--)
-            {
-                if (FilesToHideObservableCollection.Contains(peptidesToPlot[i].FileName))
+                if (PeptidesPreviouslyPlotted.Count != 0 && PeptidesPreviouslyPlotted.All(x => PeptidesToDisplay.Contains(x)))
                 {
-                    peptidesToPlot.RemoveAt(i);
+                    PlotPeptideData(PeptidesPreviouslyPlotted);
                 }
+                //else do nothing
             }
-            PlotPeptideData(peptidesToPlot);
+            else
+            {
+                // plot the selected peptide/protein
+
+                PeptideTurnoverObject row = (PeptideTurnoverObject)DisplayPeptidesDataGrid.SelectedItem;
+                List<PeptideTurnoverObject> peptidesToPlot = PeptidesToDisplay.Where(x => x.FullSequence.Equals(row.FullSequence) && x.Protein.Equals(row.Protein)).ToList();
+                for (int i = peptidesToPlot.Count - 1; i >= 0; i--)
+                {
+                    if (FilesToHideObservableCollection.Contains(peptidesToPlot[i].FileName))
+                    {
+                        peptidesToPlot.RemoveAt(i);
+                    }
+                }
+                PlotPeptideData(peptidesToPlot);
+                PeptidesPreviouslyPlotted = peptidesToPlot;
+            }
         }
 
         private void PlotPeptideData(List<PeptideTurnoverObject> peptidesToPlot)
@@ -454,7 +493,7 @@ namespace AppleTurnover
                 //get the title
                 RatioComparisonPlot.plt.Title(peptide.FullSequence, fontSize: 24);
                 //plot actual data
-                RatioComparisonPlot.plt.PlotScatter(peptide.Timepoints, peptide.RelativeFractions, markerSize:4, lineWidth: 0, label: "Observed Ratios");
+                RatioComparisonPlot.plt.PlotScatter(peptide.Timepoints, peptide.RelativeFractions, markerSize: 4, lineWidth: 0, label: "Observed Ratios");
 
                 //Plot protein info
                 string protein = peptide.Protein;
@@ -471,7 +510,7 @@ namespace AppleTurnover
                 HalfLifeComparisonPlot.plt.Ticks(fontSize: 18);
 
                 double errorDiff = errors.Max() - errors.Min();
-                if(errorDiff==0)
+                if (errorDiff == 0)
                 {
                     errorDiff = 0.01;
                 }
@@ -489,8 +528,8 @@ namespace AppleTurnover
                 HalfLifeComparisonPlot.plt.PlotErrorBars(new double[] { peptide.Error }, new double[] { Math.Log(2, Math.E) / peptide.Kbi },
                     null, null, new double[] { (Math.Log(2, Math.E) / peptide.LowKbi) - (Math.Log(2, Math.E) / peptide.Kbi) },
                     new double[] { (Math.Log(2, Math.E) / peptide.Kbi) - (Math.Log(2, Math.E) / peptide.HighKbi) }, color: point.color);
- 
-                HalfLifeComparisonPlot.plt.Axis(errors.Min() - errorDiff*0.2, errors.Max() + errorDiff * 0.2, halfLives.Min() - negativeErrors.Max() - halflifeDiff * 0.2, halfLives.Max() + positiveErrors.Max() + halflifeDiff * 0.2);
+
+                HalfLifeComparisonPlot.plt.Axis(errors.Min() - errorDiff * 0.2, errors.Max() + errorDiff * 0.2, halfLives.Min() - negativeErrors.Max() - halflifeDiff * 0.2, halfLives.Max() + positiveErrors.Max() + halflifeDiff * 0.2);
                 HalfLifeComparisonPlot.plt.Axis();
 
                 PeptideTurnoverObject currentProtein = AnalyzedProteins.Where(x => x.Protein.Equals(protein) && x.FileName.Equals(peptide.FileName)).FirstOrDefault();
@@ -578,37 +617,6 @@ namespace AppleTurnover
             UpdatePeptidePlots();
         }
 
-        private void AnalyzedFilesGrid_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
-        {
-            if (DisplayAnalyzedFilesDataGrid.SelectedItem == null)
-            {
-                return;
-            }
-
-            //plot the precision scatter plot and the half-life histogram for this file
-            string dataFile = ((RawDataForDataGrid)DisplayAnalyzedFilesDataGrid.SelectedItem).FilePath;
-            if (peptideRadioButton.IsChecked.Value)
-            {
-                List<PeptideTurnoverObject> peptidesForThisFile = PeptidesToDisplay.Where(x => x.FileName.Equals(dataFile)).ToList();
-                if (PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
-                {
-                    PoolParameters poolParams = PoolParameterDictionary[dataFile];
-                    PlotPrecisionScatterPlot(peptidesForThisFile, poolParams);
-                    PlotHalfLifeHistogram(peptidesForThisFile);
-                }
-            }
-            else //graph proteins
-            {
-                List<PeptideTurnoverObject> proteinsForThisFile = AnalyzedProteins.Where(x => x.FileName.Equals(dataFile)).ToList();
-                if (PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
-                {
-                    PoolParameters poolParams = PoolParameterDictionary[dataFile];
-                    PlotPrecisionScatterPlot(proteinsForThisFile, poolParams);
-                    PlotHalfLifeHistogram(proteinsForThisFile);
-                }
-            }
-        }
-
         private void PlotPrecisionScatterPlot(List<PeptideTurnoverObject> peptidesToPlot, PoolParameters poolParams)
         {
             PrecisionPlot.plt.Clear();
@@ -643,7 +651,7 @@ namespace AppleTurnover
             foreach (double timepoint in timepoints)
             {
                 var value = dictionaryToPlot[timepoint];
-                PrecisionPlot.plt.PlotScatter(value.Select(x => x.halfLife).ToArray(), value.Select(x => x.relativeFraction).ToArray(), lineWidth: 0, markerSize: 1, label: timepoint.ToString());
+                PrecisionPlot.plt.PlotScatter(value.Select(x => x.halfLife).ToArray(), value.Select(x => x.relativeFraction).ToArray(), lineWidth: 0, markerSize: 1.5, label: timepoint.ToString());
             }
 
             //plt fits for each timepoint on top of the peptide data
@@ -661,9 +669,9 @@ namespace AppleTurnover
 
             foreach (double halflife in halflives)
             {
-                if(halflife==0)
-                { 
-                    continue; 
+                if (halflife == 0)
+                {
+                    continue;
                 }
 
                 //halflife = ln(2)/kbi
@@ -689,7 +697,7 @@ namespace AppleTurnover
             PrecisionPlot.plt.Axis(0, 50, 0, 1);
             PrecisionPlot.Render(); PrecisionPlot.Render();
         }
-    
+
         private void PlotHalfLifeHistogram(List<PeptideTurnoverObject> peptidesToPlot)
         {
             HalfLifeHistogramPlot.plt.Clear();
@@ -703,7 +711,7 @@ namespace AppleTurnover
             HalfLifeHistogramPlot.plt.PlotBar(histogram.bins, histogram.counts, barWidth: barWidth, outlineWidth: 0);
             HalfLifeHistogramPlot.plt.YLabel("Frequency (# peptides)");
             HalfLifeHistogramPlot.plt.XLabel("Half-life (Days)");
-            HalfLifeHistogramPlot.plt.Axis(0, 100, 0, histogram.counts.Max()*1.1);
+            HalfLifeHistogramPlot.plt.Axis(0, 100, 0, histogram.counts.Max() * 1.1);
             HalfLifeComparisonPlot.Render(); HalfLifeComparisonPlot.Render();
         }
 
@@ -734,31 +742,77 @@ namespace AppleTurnover
             }
         }
 
-        //private void OpenOutputFolder_Click(object sender, RoutedEventArgs e)
-        //{
-        //    string outputFolder = OutputFolderTextbox.Text;
-        //    if (outputFolder.Contains("$DATETIME"))
-        //    {
-        //        // the exact file path isn't known, so just open the parent directory
-        //        outputFolder = Directory.GetParent(outputFolder).FullName;
-        //    }
+        private void AnalyzedFilesGrid_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
+        {
+            UpdateGlobalVisualization();
+        }
 
-        //    if (!Directory.Exists(outputFolder) && !string.IsNullOrEmpty(outputFolder))
-        //    {
-        //        // create the directory if it doesn't exist yet
-        //            Directory.CreateDirectory(outputFolder);
-        //    }
+        private void GlobalVisualization_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateGlobalVisualization();
+        }
 
-        //    if (Directory.Exists(outputFolder))
-        //    {
-        //        // open the directory
-        //        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
-        //        {
-        //            FileName = outputFolder,
-        //            UseShellExecute = true,
-        //            Verb = "open"
-        //        });
-        //    }
-        //}
+
+        private void UpdateGlobalVisualization(PoolParameters customParams = null)
+        {
+            if (DisplayAnalyzedFilesDataGrid.SelectedItem == null)
+            {
+                return;
+            }
+            //plot the precision scatter plot and the half-life histogram for this file
+            string dataFile = ((RawDataForDataGrid)DisplayAnalyzedFilesDataGrid.SelectedItem).FilePath;
+            if (peptideRadioButton.IsChecked.Value)
+            {
+                List<PeptideTurnoverObject> peptidesForThisFile = AllPeptides.Where(x => x.FileName.Equals(dataFile)).ToList();
+                if (customParams != null || PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
+                {
+                    customParams = customParams ?? PoolParameterDictionary[dataFile];
+                    ChangeParamTextBox = false;
+                    KstTB.Text = customParams.Kst.ToString();
+                    KbtTB.Text = customParams.Kbt.ToString();
+                    KoaTB.Text = customParams.Koa.ToString();
+                    MseTB.Text = peptidesForThisFile.Sum(x => x.Error).ToString();
+                    ChangeParamTextBox = true;
+                    PlotPrecisionScatterPlot(peptidesForThisFile, customParams);
+                    PlotHalfLifeHistogram(peptidesForThisFile);
+                }
+            }
+            else //graph proteins
+            {
+                List<PeptideTurnoverObject> proteinsForThisFile = AnalyzedProteins.Where(x => x.FileName.Equals(dataFile)).ToList();
+                if (customParams != null || PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
+                {
+                    customParams = customParams ?? PoolParameterDictionary[dataFile];
+                    PlotPrecisionScatterPlot(proteinsForThisFile, customParams);
+                    PlotHalfLifeHistogram(proteinsForThisFile);
+                }
+            }
+        }
+
+        private void ParamTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (ChangeParamTextBox)
+            {
+                UpdateGlobalVisualization(new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KoaTB.Text)));
+            }
+        }
+
+        private void ParamApply_Click(object sender, RoutedEventArgs e)
+        {
+            if (DisplayAnalyzedFilesDataGrid.SelectedItem == null)
+            {
+                return;
+            }
+            string dataFile = ((RawDataForDataGrid)DisplayAnalyzedFilesDataGrid.SelectedItem).FilePath;
+            PoolParameters customParams = new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KoaTB.Text));
+            PoolParameterDictionary[dataFile] = customParams;
+            List<PeptideTurnoverObject> peptidesForThisFile = AllPeptides.Where(x => x.FileName.Equals(dataFile)).ToList();
+
+            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Koa, peptidesForThisFile, 0.001);
+            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Koa, peptidesForThisFile, 0.0001);
+            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Koa, peptidesForThisFile, 0.00001);
+            MseTB.Text = peptidesForThisFile.Sum(x => x.Error).ToString();
+            UpdateGlobalVisualization();
+        }
     }
 }

@@ -24,9 +24,13 @@ namespace AppleTurnover
         public int StartResidue { get; set; }
         public int EndResidue { get; set; }
         public Dictionary<int, string> ModDictionary { get; set; }
-        public string ErrorString { get; private set; }
         public string FileName { get; set; }
         public double[] MonteCarloKbis { get; set; }
+
+        //properties used to display data
+        public string ErrorString { get { return Math.Round(Error, 6).ToString(); } }
+        public double Halflife { get { return Math.Round(Math.Log(2) / Kbi, 1); } }
+        public double CI { get { return Math.Round((Math.Log(2) / LowKbi) - (Math.Log(2) / HighKbi), 1); } }
 
         public PeptideTurnoverObject(string fullSequence, double[] timepoints, double[] rFValues, string[] filenames, double[] intensities, double totalIntensity, string fileName, string protein = "")
         {
@@ -87,39 +91,28 @@ namespace AppleTurnover
             Error = TemporaryError;
         }
 
-        //removes all modifications (in parenthesis) and returns the base sequence
+        //removes all modifications (in brackets) and returns the base sequence
         public static string CleanSeq(string seq)
         {
-            bool ModificationOn = false;
-            string ModificationName = "";
             string cleanedSeq = "";
             char[] seqArray = seq.ToCharArray();
-            foreach (char amino_acid in seqArray) //if there are synonymous peaks, then the sequences must be identical or possess ambiguities that will be caught later
+            int numBrackets = 0; //there can be nested brackets, such as [Fe[III]]
+            foreach (char amino_acid in seqArray)
             {
-                if (amino_acid == ']') //only occurs at end of mod
+                if (amino_acid == ']')
                 {
-                    ModificationOn = false;
+                    numBrackets--;
                 }
-                if (ModificationOn == true) //only occurs if "(" already found
+                else if (amino_acid == '[')
                 {
-                    ModificationName += amino_acid;
+                    numBrackets++;
                 }
-                if (amino_acid == '[') //start collecting PTM name
-                {
-                    ModificationOn = true;
-                }
-                if (ModificationOn == false && amino_acid != ']')
+                else if (numBrackets == 0)
                 {
                     cleanedSeq += amino_acid;
                 }
             }
             return cleanedSeq;
-        }
-
-        public void SetErrorString()
-        {
-            double test = Math.Round(Error, 6);
-            ErrorString = test.ToString();
         }
     }
 }

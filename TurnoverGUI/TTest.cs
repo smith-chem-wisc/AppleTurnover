@@ -54,7 +54,7 @@ namespace AppleTurnover
 
                             //do the comparison (t-test of normalized ratios for all timepoints)
                             double averageKbi = (proteinOne.Kbi + proteinTwo.Kbi) / 2;
-                            double normalizedHalfLife = Math.Log(2)/(averageKbi); //this is the day we're going to normalize all of the relative fractions to
+                            double normalizedHalfLife = Math.Log(2) / (averageKbi); //this is the day we're going to normalize all of the relative fractions to
 
                             double[] expectedOriginalRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Koa, proteinOne.Kbi, proteinOne.Timepoints);
                             double[] expectedUpdatedRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Koa, proteinOne.Kbi, proteinOne.Timepoints);
@@ -73,7 +73,7 @@ namespace AppleTurnover
                             Sample sampleOne = new Sample(normalizedRatiosOne);
                             Sample sampleTwo = new Sample(normalizedRatiosTwo);
                             TestResult result = Sample.StudentTTest(sampleOne, sampleTwo);
-                            linesToWrite.Add(proteinOne.Protein + "\t" + (Math.Log2(Math.Log(2)/proteinTwo.Kbi) - Math.Log2(Math.Log(2) / proteinOne.Kbi)).ToString() + '\t' +
+                            linesToWrite.Add(proteinOne.Protein + "\t" + (Math.Log2(Math.Log(2) / proteinTwo.Kbi) - Math.Log2(Math.Log(2) / proteinOne.Kbi)).ToString() + '\t' +
                                 (-1 * Math.Log10(result.Probability)).ToString() + '\t' + (Math.Log10(2) / proteinOne.Kbi).ToString() + '\t' + (Math.Log10(2) / proteinTwo.Kbi).ToString());
 
                             a++;
@@ -126,8 +126,16 @@ namespace AppleTurnover
                             Sample sampleTwo = new Sample(proteinTwo.MonteCarloKbis.Select(x => Math.Log(2) / x));
                             //do the t-test
                             TestResult result = Sample.StudentTTest(sampleOne, sampleTwo);
-                            linesToWrite.Add(proteinOne.Protein + "\t" + proteinTwo.Protein + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
-                                (Math.Log2(sampleTwo.Median) - Math.Log2(sampleOne.Median)).ToString() + '\t' + (-1*Math.Log(result.Probability)).ToString());
+                            try //sometimes crashes if stdev is zero
+                            {
+                                linesToWrite.Add(proteinOne.Protein + "\t" + proteinTwo.Protein + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
+                                    (Math.Log2(sampleTwo.Median) - Math.Log2(sampleOne.Median)).ToString() + '\t' + (-1 * Math.Log(result.Probability)).ToString());
+                            }
+                            catch
+                            {
+                                linesToWrite.Add(proteinOne.Protein + "\t" + proteinTwo.Protein + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
+                                (Math.Log2(sampleTwo.Median) - Math.Log2(sampleOne.Median)).ToString() + '\t' + "NA");
+                            }
                         }
                     }
                     i--;

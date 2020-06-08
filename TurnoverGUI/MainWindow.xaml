@@ -73,7 +73,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="80" />
-                            <RowDefinition Height="25" />
+                            <RowDefinition Height="28" />
                         </Grid.RowDefinitions>
                         <DataGrid x:Name="dataGridPeptideFiles" ItemsSource="{Binding}" CanUserSortColumns="False" CanUserResizeColumns="False" CanUserReorderColumns="False" DockPanel.Dock="Top">
                             <DataGrid.Resources>
@@ -127,15 +127,15 @@
                 <StackPanel Grid.Row="2">
                     <Grid Margin="0 10 0 10">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="4*"/>
+                            <ColumnDefinition Width="4*"/>
                             <ColumnDefinition Width="3*"/>
                             <ColumnDefinition Width="3*"/>
-                            <ColumnDefinition Width="2*"/>
-                            <ColumnDefinition Width="2*"/>
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Orientation="Horizontal" Margin="5 5 5 0" Grid.Column="0">
-                            <Label x:Name="MinValidValuesTotalLabel" Content="Minimum Number of Valid Values (Total):" Width="250" />
-                            <TextBox x:Name="MinValidValuesTotalTextBox" PreviewTextInput="CheckIfNumber" Width="45" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500">
+                            <Label x:Name="MinValidValuesTotalLabel" Content="Minimum Valid Values (Total):" Width="180" />
+                            <TextBox x:Name="MinValidValuesTotalTextBox" PreviewTextInput="CheckIfNumber" Width="45" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500" >
                                 <TextBox.ToolTip>
                                     <TextBlock>
                               The minimum number of samples with a ratio allowed. If a protein has a ratio for fewer samples than this number, it is discarded.
@@ -144,7 +144,7 @@
                             </TextBox>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="5 5 5 0" Grid.Column="1">
-                            <Label x:Name="MinValidValuesTimepointLabel" Content="Minimum Number of Valid Values Per Timepoint:" Width="300" />
+                            <Label x:Name="MinValidValuesTimepointLabel" Content="Minimum Valid Values Per Timepoint:" Width="220" />
                             <TextBox x:Name="MinValidValuesTimepointTextBox" PreviewTextInput="CheckIfNumber" Width="45" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500">
                                 <TextBox.ToolTip>
                                     <TextBlock>
@@ -163,7 +163,7 @@
                         <CheckBox x:Name="RemoveBadPeptidesCheckBox" Grid.Column="3" Content="Remove Messy Peptides" Margin="10 9 5 0" ToolTipService.ShowDuration="999999" ToolTipService.InitialShowDelay="500" HorizontalAlignment="Center">
                             <CheckBox.ToolTip>
                                 <TextBlock>
-                              Allows for data to be used if only the heavy or the light was quantified, producing ratios of 1:0, 0:1, 0.5:0.5, etc. When unchecked, at least two versions (light and heavy, light-light and heavy-light, etc) are required per sample.
+                                    Removes peptides that contain data with ratio deviations greater than 0.1
                                 </TextBlock>
                             </CheckBox.ToolTip>
                         </CheckBox>
@@ -186,8 +186,8 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Orientation="Vertical" Grid.Column="0">
                                 <StackPanel Orientation="Horizontal" Margin="0 10 0 0">
-                                    <RadioButton x:Name="peptideRadioButton" GroupName="globalVis" Content="Show Peptide Data"/>
-                                    <RadioButton x:Name="proteinRadioButton" GroupName="globalVis" Content="Show Protein Data" Margin="50 0 0 0"/>
+                                    <RadioButton x:Name="peptideRadioButton" GroupName="globalVis" Content="Show Peptide Data" Click="GlobalVisualization_Click"/>
+                                    <RadioButton x:Name="proteinRadioButton" GroupName="globalVis" Content="Show Protein Data" Margin="50 0 0 0" Click="GlobalVisualization_Click"/>
                                 </StackPanel>
                                 <Label Content="Select a file to visualize its data" Margin="10,0,10,0"/>
                                 <DataGrid x:Name="DisplayAnalyzedFilesDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding}" 
@@ -198,7 +198,20 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </StackPanel>
-                            <ScottPlot:WpfPlot Name="PrecisionPlot" Height="300" Margin="10 10 10 10" Grid.Column="1"/>
+                            <StackPanel Orientation="Vertical"  Grid.Column="1">
+                                <StackPanel Orientation="Horizontal">
+                                    <Label Content="Kst"/>
+                                    <TextBox x:Name="KstTB" Width="40" Margin="0 0 10 0" TextChanged="ParamTextBox_TextChanged"/>
+                                    <Label Content="Kbt"/>
+                                    <TextBox x:Name="KbtTB" Width="40" Margin="0 0 10 0" TextChanged="ParamTextBox_TextChanged"/>
+                                    <Label Content="Koa"/>
+                                    <TextBox x:Name="KoaTB" Width="40" Margin="0 0 10 0" TextChanged="ParamTextBox_TextChanged"/>
+                                    <Label Content="MSE"/>
+                                    <TextBox x:Name="MseTB" Width="40" Margin="0 0 20 0" TextChanged="ParamTextBox_TextChanged"/>
+                                    <Button x:Name="assignParamsButton" Content="Apply" Width="40" Click="ParamApply_Click"/>
+                                </StackPanel>
+                                <ScottPlot:WpfPlot Name="PrecisionPlot" Height="300" Margin="10 10 10 10"/>
+                            </StackPanel>
                             <ScottPlot:WpfPlot Name="HalfLifeHistogramPlot" Height="300" Margin="10 10 10 10" Grid.Column="2"/>
                         </Grid>
                         <!--make the rapid validation scatter-->
@@ -222,6 +235,8 @@
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Peptide" Binding="{Binding FullSequence}"></DataGridTextColumn>
                                         <DataGridTextColumn Header="Protein" Binding="{Binding Protein}"></DataGridTextColumn>
+                                        <DataGridTextColumn Header="Half-life" Binding="{Binding Halflife}"></DataGridTextColumn>
+                                        <DataGridTextColumn Header="C.I." Binding="{Binding CI}"></DataGridTextColumn>
                                         <DataGridTextColumn Header="Error (MSE)" Binding="{Binding ErrorString}"></DataGridTextColumn>
                                         <DataGridTextColumn Header="#Ratios" Binding="{Binding Timepoints.Length}"></DataGridTextColumn>
                                         <DataGridTextColumn Header="File" Binding="{Binding FileName}"></DataGridTextColumn>
