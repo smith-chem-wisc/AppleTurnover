@@ -9,13 +9,11 @@ namespace AppleTurnover
         public double Kst { get; set; }
         public double Kbt { get; set; }
         public double Kao { get; set; }
-        public double DeltaX { get; set; }
-        public PoolParameters(double kst, double kbt, double kao, double deltaX)
+        public PoolParameters(double kst, double kbt, double kao)
         {
             Kst = kst;
             Kbt = kbt;
             Kao = kao;
-            DeltaX = deltaX;
         }
     }
 }

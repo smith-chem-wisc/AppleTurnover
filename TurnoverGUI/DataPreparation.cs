@@ -586,7 +586,7 @@ namespace AppleTurnover
                     }
                 }
             }
-          
+
             return proteins.Where(x => x.Timepoints.Length >= settings.MinValidValuesTotal).OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
         }
 
@@ -669,7 +669,7 @@ namespace AppleTurnover
                 //We need to read in the:
                 //-pool parameters
                 double[] poolParams = lines[0].Split('\t').Select(x => Convert.ToDouble(x)).ToArray();
-                poolParameterDictionary[inputfile] = new PoolParameters(poolParams[0], poolParams[1], poolParams[2], poolParams.Length<4 ? 0 : poolParams[3]);
+                poolParameterDictionary[inputfile] = new PoolParameters(poolParams[0], poolParams[1], poolParams[2]);
 
                 //-peptides
                 int i = 1;
@@ -730,7 +730,7 @@ namespace AppleTurnover
             List<string> linesToWrite = new List<string>();
             //We need to write the:
             //-pool parameters
-            linesToWrite.Add(poolParams.Kst.ToString() + '\t' + poolParams.Kbt.ToString() + '\t' + poolParams.Kao.ToString() + '\t' + poolParams.DeltaX.ToString());
+            linesToWrite.Add(poolParams.Kst.ToString() + '\t' + poolParams.Kbt.ToString() + '\t' + poolParams.Kao.ToString());
             //-Peptides
             foreach (PeptideTurnoverObject peptide in peptides)
             {

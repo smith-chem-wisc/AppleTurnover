@@ -207,9 +207,7 @@
                                     <Label Content="Kao"/>
                                     <TextBox x:Name="KaoTB" Width="40" Margin="0 0 10 0" TextChanged="ParamTextBox_TextChanged"/>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <Label Content="dX"/>
-                                    <TextBox x:Name="DeltaXTB" Width="40" Margin="0 0 10 0" TextChanged="ParamTextBox_TextChanged"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">      
                                     <Label Content="MSE"/>
                                     <TextBox x:Name="MseTB" Width="40" Margin="0 0 20 0" TextChanged="ParamTextBox_TextChanged"/>
                                     <Button x:Name="assignParamsButton" Content="Apply" Width="40" Click="ParamApply_Click"/>
