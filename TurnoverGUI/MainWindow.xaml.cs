@@ -244,7 +244,7 @@ namespace AppleTurnover
                     FilesToHideObservableCollection.Clear();
                 });
 
-                try
+               // try
                 {
                     (sender as BackgroundWorker).ReportProgress(0, "Starting");
 
@@ -314,11 +314,11 @@ namespace AppleTurnover
 
                     (sender as BackgroundWorker).ReportProgress(0, "Finished!");
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Task failed: " + ex.Message);
-                    (sender as BackgroundWorker).ReportProgress(0, "Task failed");
-                }
+                //catch (Exception ex)
+                //{
+                //    MessageBox.Show("Task failed: " + ex.Message);
+                //    (sender as BackgroundWorker).ReportProgress(0, "Task failed");
+                //}
 
                 AllowFileDrop = true;
                 Dispatcher.Invoke(() =>
@@ -359,7 +359,7 @@ namespace AppleTurnover
             }
 
             //half-life = ln(2)/kbt, make half life 0, kbt = infinity
-            double[] rfs = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(poolParams.Kst, poolParams.Kbt, poolParams.Koa, kbi, timepoints);
+            double[] rfs = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(poolParams.Kst, poolParams.Kbt, poolParams.Kao, poolParams.DeltaX, kbi, timepoints);
             Dispatcher.Invoke(() =>
             {
                 RatioComparisonPlot.plt.Layout(titleHeight: 20, xLabelHeight: 40, y2LabelWidth: 20);
@@ -678,7 +678,8 @@ namespace AppleTurnover
                 //kbi = ln(2)/halflife
 
 
-                double[] rfsForThisHalfLife = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(poolParams.Kst, poolParams.Kbt, poolParams.Koa, Math.Log(2, Math.E) / halflife, timepoints);
+                double[] rfsForThisHalfLife = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(
+                    poolParams.Kst, poolParams.Kbt, poolParams.Kao, poolParams.DeltaX, Math.Log(2, Math.E) / halflife, timepoints);
 
                 for (int i = 0; i < timepoints.Length; i++)
                 {
@@ -770,7 +771,8 @@ namespace AppleTurnover
                     ChangeParamTextBox = false;
                     KstTB.Text = customParams.Kst.ToString();
                     KbtTB.Text = customParams.Kbt.ToString();
-                    KoaTB.Text = customParams.Koa.ToString();
+                    KaoTB.Text = customParams.Kao.ToString();
+                    DeltaXTB.Text = customParams.DeltaX.ToString();
                     MseTB.Text = peptidesForThisFile.Sum(x => x.Error).ToString();
                     ChangeParamTextBox = true;
                     PlotPrecisionScatterPlot(peptidesForThisFile, customParams);
@@ -789,11 +791,62 @@ namespace AppleTurnover
             }
         }
 
+        private void CreateMapForLocalMinimaSearch()
+        {
+         
+            //get original params
+            var ogParams = PoolParameterDictionary.First().Value;
+            double kst = ogParams.Kst;
+            double kbt = ogParams.Kbt;
+            double kao = ogParams.Kao;
+            double deltaX = ogParams.DeltaX;
+
+                string dataFile = ((RawDataForDataGrid)DisplayAnalyzedFilesDataGrid.SelectedItem).FilePath;
+                PoolParameters customParams = new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KaoTB.Text), Convert.ToDouble(DeltaXTB.Text));
+                PoolParameterDictionary[dataFile] = customParams;
+                List<PeptideTurnoverObject> peptidesForThisFile = AllPeptides.Where(x => x.FileName.Equals(dataFile)).ToList();
+
+                List<string> results = new List<string>();
+
+            double[] ratiosForIteration = new double[] { 0.1, 0.2, 0.33, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2,4 };
+            for (int i = 0; i < ratiosForIteration.Length; i++)
+            {
+                double kstCurrent = kst * ratiosForIteration[i];
+                for (int j = 0; j < ratiosForIteration.Length; j++)
+                {
+                    double kbtCurrent = kbt * ratiosForIteration[j];
+                    for (int k = 0; k < ratiosForIteration.Length; k++)
+                    {
+                        double kaoCurrent = kao * ratiosForIteration[k];
+                        for (int l = 0; l < ratiosForIteration.Length; l++)
+                        {
+                            double deltaXCurrent = deltaX * ratiosForIteration[l];
+
+                            NonLinearRegression.UpdateKbi(kstCurrent, kbtCurrent, kaoCurrent, deltaXCurrent, peptidesForThisFile, 0.001);
+                            NonLinearRegression.UpdateKbi(kstCurrent, kbtCurrent, kaoCurrent, deltaXCurrent, peptidesForThisFile, 0.0001);
+                            NonLinearRegression.UpdateKbi(kstCurrent, kbtCurrent, kaoCurrent, deltaXCurrent, peptidesForThisFile, 0.00001);
+
+                            results.Add(kstCurrent.ToString() + '\t' + kbtCurrent.ToString() + '\t' + kaoCurrent.ToString() + '\t' + deltaXCurrent.ToString() + '\t' + peptidesForThisFile.Sum(x => x.Error).ToString());
+                        }
+                    }
+                }
+            }
+            File.WriteAllLines(@"E:\Chemistry\MusSILAC\TissuePaper\Grid.tsv", results);
+
+        }
+
         private void ParamTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (ChangeParamTextBox)
             {
-                UpdateGlobalVisualization(new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KoaTB.Text)));
+                try
+                {
+                    UpdateGlobalVisualization(new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KaoTB.Text), Convert.ToDouble(DeltaXTB.Text)));
+                }
+                catch
+                {
+                    //do nothing, the user is still typing
+                }
             }
         }
 
@@ -804,15 +857,16 @@ namespace AppleTurnover
                 return;
             }
             string dataFile = ((RawDataForDataGrid)DisplayAnalyzedFilesDataGrid.SelectedItem).FilePath;
-            PoolParameters customParams = new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KoaTB.Text));
+            PoolParameters customParams = new PoolParameters(Convert.ToDouble(KstTB.Text), Convert.ToDouble(KbtTB.Text), Convert.ToDouble(KaoTB.Text), Convert.ToDouble(DeltaXTB.Text));
             PoolParameterDictionary[dataFile] = customParams;
             List<PeptideTurnoverObject> peptidesForThisFile = AllPeptides.Where(x => x.FileName.Equals(dataFile)).ToList();
 
-            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Koa, peptidesForThisFile, 0.001);
-            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Koa, peptidesForThisFile, 0.0001);
-            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Koa, peptidesForThisFile, 0.00001);
+            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Kao, customParams.DeltaX, peptidesForThisFile, 0.001);
+            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Kao, customParams.DeltaX, peptidesForThisFile, 0.0001);
+            NonLinearRegression.UpdateKbi(customParams.Kst, customParams.Kbt, customParams.Kao, customParams.DeltaX, peptidesForThisFile, 0.00001);
             MseTB.Text = peptidesForThisFile.Sum(x => x.Error).ToString();
             UpdateGlobalVisualization();
+            //CreateMapForLocalMinimaSearch();
         }
     }
 }

@@ -18,9 +18,11 @@ namespace AppleTurnover
         private const double ITERATIVE_SHIFT = 0.001; //original 0.00001
         private const double MAX_KST_VALUE = 2;
         private const double MAX_KBT_VALUE = 0.5;
-        private const double MAX_KOA_VALUE = 5;
+        private const double MAX_KAO_VALUE = 5;
+
         private const double MIN_PARAMETER_VALUE = ITERATIVE_SHIFT * 10;
-        private const int NUM_TRAINING_POINTS = 100;
+        private const int NUM_TRAINING_GROUPS = 6;
+        private const int NUM_TRAINING_POINTS_PER_GROUP = 20;
 
         public static PoolParameters RegressionAnalysis(List<PeptideTurnoverObject> peptides, string filePath, Settings settings)
         {
@@ -28,27 +30,26 @@ namespace AppleTurnover
             string filename = Path.GetFileNameWithoutExtension(filePath);
 
             //initial training set
-            List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = peptides.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptides.Count));
+            List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = new List<PeptideTurnoverObject>(); //peptides.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptides.Count));
             List<string> linesOfDifferentStarts = new List<string>();
 
             //starting values taken from figure 6b of Guan et al., 2011, Anal. Chem. "Compartment Modeling for Mammalian Protein Turnover Studies by Stable Isotope Metabolic Labeling"
             double ksto = 0.7;
             double kbto = 0.026;
-            double koao = 2.0;
+            double kaoo = 2.0;
+            double dxo = 0;
 
-            //try something new
-            peptidesToDetermineStartingParameters.Clear();
-            UpdateKbi(ksto, kbto, koao, peptides, ITERATIVE_SHIFT);
+            UpdateKbi(ksto, kbto, kaoo, dxo, peptides);
 
             //split into 6 sections
             //kbi of >0.2, 0.2-0.1, 0.1-0.05, 0.05-0.025, 0.025-0.0125, <0.0125
             //half lives of <3.5, 3.5-6.9, 6.9-13.9, 13.9-27.7, 27.7-55.5, >55.5
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < NUM_TRAINING_GROUPS; i++)
             {
                 double currentMin = i == 0 ? 0 : 0.0125 * Math.Pow(2, i - 1);
                 double currentMax = i == 5 ? double.PositiveInfinity : 0.0125 * Math.Pow(2, i);
                 List<PeptideTurnoverObject> peptidesForThisSection = peptides.Where(x => x.Kbi <= currentMax && x.Kbi > currentMin).OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
-                int numPeptidesToAddFromThisSection = Math.Min(peptidesForThisSection.Count, 20);
+                int numPeptidesToAddFromThisSection = Math.Min(peptidesForThisSection.Count, NUM_TRAINING_POINTS_PER_GROUP);
                 for (int j = 0; j < numPeptidesToAddFromThisSection; j++)
                 {
                     peptidesToDetermineStartingParameters.Add(peptidesForThisSection[j]);
@@ -57,24 +58,26 @@ namespace AppleTurnover
 
             List<double> kstList = new List<double>();
             List<double> kbtList = new List<double>();
-            List<double> koaList = new List<double>();
+            List<double> kaoList = new List<double>();
+            List<double> dxList = new List<double>();
             List<double> errors = new List<double>();
 
             //foreach training point
             for (int index = 0; index < peptidesToDetermineStartingParameters.Count; index++)
             {
                 PeptideTurnoverObject peptide = peptidesToDetermineStartingParameters[index];
-                double[] parameters = new double[] { ksto, kbto, koao };
+                PoolParameters parameters = new PoolParameters(ksto, kbto, kaoo, dxo);
                 OptimizeFit(parameters, new List<PeptideTurnoverObject> { peptide });
 
-                kstList.Add(parameters[0]);
-                kbtList.Add(parameters[1]);
-                koaList.Add(parameters[2]);
+                kstList.Add(parameters.Kst);
+                kbtList.Add(parameters.Kbt);
+                kaoList.Add(parameters.Kao);
+                dxList.Add(parameters.DeltaX);
                 errors.Add(peptide.Error);
             }
 
             //Get median of the values
-            double[] bestVariables = new double[] { kstList.Median(), kbtList.Median(), koaList.Median() };
+            PoolParameters bestVariables = new PoolParameters(kstList.Median(), kbtList.Median(), kaoList.Median(), dxList.Median());
 
             //train on test peptides
             OptimizeFit(bestVariables, peptidesToDetermineStartingParameters);
@@ -82,15 +85,16 @@ namespace AppleTurnover
             //train on all peptides
             OptimizeFit(bestVariables, peptidesToDetermineStartingParameters);
 
-            double bestKst = bestVariables[0];
-            double bestKbt = bestVariables[1];
-            double bestKoa = bestVariables[2];
+            double bestKst = bestVariables.Kst;
+            double bestKbt = bestVariables.Kbt;
+            double bestKao = bestVariables.Kao;
+            double bestDX = bestVariables.DeltaX;
 
-            //For each peptide, apply the kst, kbt, and koa, but optimize for the kbi
-            UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT);
+            //For each peptide, apply the kst, kbt, and kao, but optimize for the kbi
+            UpdateKbi(bestKst, bestKbt, bestKao, bestDX, peptides, ITERATIVE_SHIFT);
             //fine tune
-            UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT / 10);
-            UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT / 100);
+            UpdateKbi(bestKst, bestKbt, bestKao, bestDX, peptides, ITERATIVE_SHIFT / 10);
+            UpdateKbi(bestKst, bestKbt, bestKao, bestDX, peptides, ITERATIVE_SHIFT / 100);
 
             //remove messy peptides
             if (settings.RemoveMessyPeptides)
@@ -98,7 +102,7 @@ namespace AppleTurnover
                 for (int i = peptides.Count - 1; i >= 0; i--)
                 {
                     var peptide = peptides[i];
-                    double[] predictions = PredictRelativeFractionUsingThreeCompartmentModel(bestKst, bestKbt, bestKoa, peptide.Kbi, peptide.Timepoints);
+                    double[] predictions = PredictRelativeFractionUsingThreeCompartmentModel(bestKst, bestKbt, bestKao, bestDX, peptide.Kbi, peptide.Timepoints);
                     double[] actualValues = peptide.RelativeFractions;
                     for (int j = 0; j < predictions.Length; j++)
                     {
@@ -114,11 +118,11 @@ namespace AppleTurnover
             //train on all peptides again
             OptimizeFit(bestVariables, peptidesToDetermineStartingParameters);
 
-            //For each peptide, apply the kst, kbt, and koa, but optimize for the kbi
-            UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT);
+            //For each peptide, apply the kst, kbt, and kao, but optimize for the kbi
+            UpdateKbi(bestKst, bestKbt, bestKao, bestDX, peptides, ITERATIVE_SHIFT);
             //fine tune
-            UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT / 10);
-            UpdateKbi(bestKst, bestKbt, bestKoa, peptides, ITERATIVE_SHIFT / 100);
+            UpdateKbi(bestKst, bestKbt, bestKao, bestDX, peptides, ITERATIVE_SHIFT / 10);
+            UpdateKbi(bestKst, bestKbt, bestKao, bestDX, peptides, ITERATIVE_SHIFT / 100);
 
             //use the monte carlo method to estimate the 95% confidence interval
             Parallel.ForEach(Partitioner.Create(0, peptides.Count), new ParallelOptions { MaxDegreeOfParallelism = 8 },
@@ -126,7 +130,7 @@ namespace AppleTurnover
     {
         for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
         {
-            UpdateKbiConfidenceInterval(bestKst, bestKbt, bestKoa, peptides[i], ITERATIVE_SHIFT);
+            UpdateKbiConfidenceInterval(bestKst, bestKbt, bestKao, bestDX, peptides[i], ITERATIVE_SHIFT);
         }
     });
 
@@ -140,33 +144,35 @@ namespace AppleTurnover
             File.WriteAllLines(Path.Combine(directory, filename + "_PeptideTurnoverResults.tsv"), linesToWrite);
 
 
-            return new PoolParameters(bestKst, bestKbt, bestKoa);
+            return new PoolParameters(bestKst, bestKbt, bestKao, bestDX);
         }
 
-        public static void OptimizeFit(double[] bestVariables, List<PeptideTurnoverObject> peptides)
+        public static void OptimizeFit(PoolParameters bestVariables, List<PeptideTurnoverObject> peptides)
         {
             bool optimizing = true;
             double updatedError = 0;
             bool increaseParameter = true;
-            double kst = bestVariables[0];
-            double kbt = bestVariables[1];
-            double koa = bestVariables[2];
-            UpdateKbi(kst, kbt, koa, peptides, ITERATIVE_SHIFT);
+            double kst = bestVariables.Kst;
+            double kbt = bestVariables.Kbt;
+            double kao = bestVariables.Kao;
+            double dX = bestVariables.DeltaX;
+            UpdateKbi(kst, kbt, kao, dX, peptides, ITERATIVE_SHIFT);
             double previousError = peptides.Sum(x => x.Error);
             double bestError = previousError;
 
             while (optimizing)
             {
                 optimizing = false;
-                kst = bestVariables[0];
-                kbt = bestVariables[1];
-                koa = bestVariables[2];
-                double[] variables = new double[] { kst, kbt, koa };
+                kst = bestVariables.Kst;
+                kbt = bestVariables.Kbt;
+                kao = bestVariables.Kao;
+                dX = bestVariables.DeltaX;
+                PoolParameters variables = new PoolParameters(kst, kbt, kao, dX);
 
                 //KST
-                if (kst + ITERATIVE_SHIFT < Math.Min(MAX_KST_VALUE, koa))
+                if (kst + ITERATIVE_SHIFT < Math.Min(MAX_KST_VALUE, kao))
                 {
-                    UpdateKbi(kst + ITERATIVE_SHIFT, kbt, koa, peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(kst + ITERATIVE_SHIFT, kbt, kao, dX, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
                     increaseParameter = true;
                 }
@@ -176,7 +182,7 @@ namespace AppleTurnover
                 }
                 if (!(updatedError < previousError) && kst - ITERATIVE_SHIFT > Math.Max(MIN_PARAMETER_VALUE, kbt))
                 {
-                    UpdateKbi(kst - ITERATIVE_SHIFT, kbt, koa, peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(kst - ITERATIVE_SHIFT, kbt, kao, dX, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
                     increaseParameter = false;
                 }
@@ -191,9 +197,9 @@ namespace AppleTurnover
                         double tempError = double.PositiveInfinity;
                         if (increaseParameter)
                         {
-                            if (kst + diff < Math.Min(MAX_KST_VALUE, koa))
+                            if (kst + diff < Math.Min(MAX_KST_VALUE, kao)) //kst should be less than kao
                             {
-                                UpdateKbi(kst + diff, kbt, koa, peptides, ITERATIVE_SHIFT);
+                                UpdateKbi(kst + diff, kbt, kao, dX, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
                             }
                         }
@@ -201,7 +207,7 @@ namespace AppleTurnover
                         {
                             if (kst - diff > Math.Max(MIN_PARAMETER_VALUE, kbt))
                             {
-                                UpdateKbi(kst - diff, kbt, koa, peptides, ITERATIVE_SHIFT);
+                                UpdateKbi(kst - diff, kbt, kao, dX, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
                             }
                         }
@@ -222,26 +228,27 @@ namespace AppleTurnover
 
                     if (increaseParameter)
                     {
-                        variables[0] += diff;
+                        variables.Kst += diff;
                     }
                     else
                     {
-                        variables[0] -= diff;
+                        variables.Kst -= diff;
                     }
 
                     if (updatedError < bestError)
                     {
                         bestError = updatedError;
-                        bestVariables[0] = variables[0];
-                        bestVariables[1] = kbt;
-                        bestVariables[2] = koa;
+                        bestVariables.Kst = variables.Kst;
+                        bestVariables.Kbt = kbt;
+                        bestVariables.Kao = kao;
+                        bestVariables.DeltaX = dX;
                     }
                 }
 
                 //KBT
                 if (kbt + ITERATIVE_SHIFT < Math.Min(MAX_KBT_VALUE, kst))
                 {
-                    UpdateKbi(kst, kbt + ITERATIVE_SHIFT, koa, peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(kst, kbt + ITERATIVE_SHIFT, kao, dX, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
                     increaseParameter = true;
                 }
@@ -251,7 +258,7 @@ namespace AppleTurnover
                 }
                 if (!(updatedError < previousError) && kbt - ITERATIVE_SHIFT > MIN_PARAMETER_VALUE)
                 {
-                    UpdateKbi(kst, kbt - ITERATIVE_SHIFT, koa, peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(kst, kbt - ITERATIVE_SHIFT, kao, dX, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
                     increaseParameter = false;
                 }
@@ -266,9 +273,9 @@ namespace AppleTurnover
                         double tempError = double.PositiveInfinity;
                         if (increaseParameter)
                         {
-                            if (kbt + diff < Math.Min(MAX_KBT_VALUE, kst))
+                            if (kbt + diff < Math.Min(MAX_KBT_VALUE, kst)) //kbt should be less than kst
                             {
-                                UpdateKbi(kst, kbt + diff, koa, peptides, ITERATIVE_SHIFT);
+                                UpdateKbi(kst, kbt + diff, kao, dX, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
                             }
                         }
@@ -276,7 +283,7 @@ namespace AppleTurnover
                         {
                             if (kbt - diff > MIN_PARAMETER_VALUE)
                             {
-                                UpdateKbi(kst, kbt - diff, koa, peptides, ITERATIVE_SHIFT);
+                                UpdateKbi(kst, kbt - diff, kao, dX, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
                             }
                         }
@@ -297,26 +304,27 @@ namespace AppleTurnover
 
                     if (increaseParameter)
                     {
-                        variables[1] += diff;
+                        variables.Kbt += diff;
                     }
                     else
                     {
-                        variables[1] -= diff;
+                        variables.Kbt -= diff;
                     }
 
                     if (updatedError < bestError)
                     {
                         bestError = updatedError;
-                        bestVariables[0] = kst;
-                        bestVariables[1] = variables[1];
-                        bestVariables[2] = koa;
+                        bestVariables.Kst = kst;
+                        bestVariables.Kbt = variables.Kbt;
+                        bestVariables.Kao = kao;
+                        bestVariables.DeltaX = dX;
                     }
                 }
 
-                //KOA                    }
-                if (koa + ITERATIVE_SHIFT < MAX_KOA_VALUE)
+                //KAO
+                if (kao + ITERATIVE_SHIFT < MAX_KAO_VALUE)
                 {
-                    UpdateKbi(kst, kbt, koa + ITERATIVE_SHIFT, peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(kst, kbt, kao + ITERATIVE_SHIFT, dX, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
                     increaseParameter = true;
                 }
@@ -324,9 +332,9 @@ namespace AppleTurnover
                 {
                     updatedError = double.PositiveInfinity;
                 }
-                if (!(updatedError < previousError) && koa - ITERATIVE_SHIFT > Math.Max(MIN_PARAMETER_VALUE, kst))
+                if (!(updatedError < previousError) && kao - ITERATIVE_SHIFT > Math.Max(MIN_PARAMETER_VALUE, kst)) //kao should be greater than kst
                 {
-                    UpdateKbi(kst, kbt, koa - ITERATIVE_SHIFT, peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(kst, kbt, kao - ITERATIVE_SHIFT, dX, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
                     increaseParameter = false;
                 }
@@ -341,17 +349,17 @@ namespace AppleTurnover
                         double tempError = double.PositiveInfinity;
                         if (increaseParameter)
                         {
-                            if (koa + diff < MAX_KOA_VALUE)
+                            if (kao + diff < MAX_KAO_VALUE)
                             {
-                                UpdateKbi(kst, kbt, koa + diff, peptides, ITERATIVE_SHIFT);
+                                UpdateKbi(kst, kbt, kao + diff, dX, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
                             }
                         }
                         else
                         {
-                            if (koa - diff > Math.Max(MIN_PARAMETER_VALUE, kst))
+                            if (kao - diff > Math.Max(MIN_PARAMETER_VALUE, kst)) //kao should be greater than kst
                             {
-                                UpdateKbi(kst, kbt, koa - diff, peptides, ITERATIVE_SHIFT);
+                                UpdateKbi(kst, kbt, kao - diff, dX, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
                             }
                         }
@@ -372,49 +380,117 @@ namespace AppleTurnover
 
                     if (increaseParameter)
                     {
-                        variables[2] += diff;
+                        variables.Kao += diff;
                     }
                     else
                     {
-                        variables[2] -= diff;
+                        variables.Kao -= diff;
                     }
 
                     if (updatedError < bestError)
                     {
                         bestError = updatedError;
-                        bestVariables[0] = kst;
-                        bestVariables[1] = kbt;
-                        bestVariables[2] = variables[2];
+                        bestVariables.Kst = kst;
+                        bestVariables.Kbt = kbt;
+                        bestVariables.Kao = variables.Kao;
+                        bestVariables.DeltaX = dX;
+                    }
+                }
+
+                //Delta X
+                    UpdateKbi(kst, kbt, kao, dX + ITERATIVE_SHIFT, peptides, ITERATIVE_SHIFT); //maintain iterative shift for kbi
+                    updatedError = peptides.Sum(x => x.Error);
+                    increaseParameter = true;
+      
+                if (!(updatedError < previousError) && dX - (ITERATIVE_SHIFT * 10) > 0)
+                {
+                    UpdateKbi(kst, kbt, kao, dX - ITERATIVE_SHIFT, peptides, ITERATIVE_SHIFT);
+                    updatedError = peptides.Sum(x => x.Error);
+                    increaseParameter = false;
+                }
+
+                if (previousError > updatedError)
+                {
+                    optimizing = true;
+                    double diff = (previousError - updatedError) / ITERATIVE_SHIFT;
+                    if (diff > ITERATIVE_SHIFT * 3)
+                    {
+                        diff = Math.Round(diff / ITERATIVE_SHIFT) * ITERATIVE_SHIFT;
+                        double tempError = double.PositiveInfinity;
+                        if (increaseParameter)
+                        {
+                                UpdateKbi(kst, kbt, kao, dX + diff, peptides, ITERATIVE_SHIFT);
+                                tempError = peptides.Sum(x => x.Error);
+                        }
+                        else
+                        {
+                            if (dX - diff > 0)
+                            {
+                                UpdateKbi(kst, kbt, kao, dX -diff, peptides, ITERATIVE_SHIFT);
+                                tempError = peptides.Sum(x => x.Error);
+                            }
+                        }
+
+                        if (tempError > updatedError)
+                        {
+                            diff = ITERATIVE_SHIFT;
+                        }
+                        else
+                        {
+                            updatedError = tempError;
+                        }
+                    }
+                    else
+                    {
+                        diff = ITERATIVE_SHIFT;
+                    }
+
+                    if (increaseParameter)
+                    {
+                        variables.DeltaX += diff;
+                    }
+                    else
+                    {
+                        variables.DeltaX -= diff;
+                    }
+
+                    if (updatedError < bestError)
+                    {
+                        bestError = updatedError;
+                        bestVariables.Kst = kst;
+                        bestVariables.Kbt = kbt;
+                        bestVariables.Kao = kao;
+                        bestVariables.DeltaX = variables.DeltaX;
                     }
                 }
 
                 //test the new gradient to ensure we don't get trapped
-                UpdateKbi(variables[0], variables[1], variables[2], peptides, ITERATIVE_SHIFT);
+                UpdateKbi(variables.Kst, variables.Kbt, variables.Kao, variables.DeltaX, peptides, ITERATIVE_SHIFT);
                 updatedError = peptides.Sum(x => x.Error);
                 if (updatedError < bestError)
                 {
                     bestError = updatedError;
-                    for (int v = 0; v < variables.Length; v++)
-                    {
-                        bestVariables[v] = variables[v];
-                    }
+                    bestVariables.Kst = variables.Kst;
+                    bestVariables.Kbt = variables.Kbt;
+                    bestVariables.Kao = variables.Kao;
+                    bestVariables.DeltaX = variables.DeltaX;
                 }
                 else //reset to the old
                 {
-                    UpdateKbi(bestVariables[0], bestVariables[1], bestVariables[2], peptides, ITERATIVE_SHIFT);
+                    UpdateKbi(bestVariables.Kst, bestVariables.Kbt, bestVariables.Kao, bestVariables.DeltaX, peptides, ITERATIVE_SHIFT);
                 }
 
                 previousError = bestError;
             }
         }
 
-        public static void UpdateKbi(double kst, double kbt, double koa, List<PeptideTurnoverObject> peptides, double ITERATIVE_SHIFT)
+        public static void UpdateKbi(double kst, double kbt, double kao, double dX, List<PeptideTurnoverObject> peptides, double ITERATIVE_SHIFT = ITERATIVE_SHIFT)
         {
             if (peptides.Count < 100) //if not worth parallelizing
             {
                 for (int i = 0; i < peptides.Count; i++)
                 {
-                    UpdateKbi(kst, kbt, koa, peptides[i], ITERATIVE_SHIFT);
+                    UpdateKbi(kst, kbt, kao, dX, peptides[i], ITERATIVE_SHIFT);
                 }
             }
             else
@@ -424,13 +500,13 @@ namespace AppleTurnover
                     {
                         for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
                         {
-                            UpdateKbi(kst, kbt, koa, peptides[i], ITERATIVE_SHIFT);
+                            UpdateKbi(kst, kbt, kao, dX, peptides[i], ITERATIVE_SHIFT);
                         }
                     });
             }
         }
 
-        public static void UpdateKbi(double kst, double kbt, double koa, PeptideTurnoverObject peptide, double ITERATIVE_SHIFT)
+        public static void UpdateKbi(double kst, double kbt, double kao, double dX, PeptideTurnoverObject peptide, double ITERATIVE_SHIFT = ITERATIVE_SHIFT)
         {
             //List<PeptideTurnoverValues> peptidesToRemove = new List<PeptideTurnoverValues>();
             const double MAX_KBI = 2.0;
@@ -442,16 +518,16 @@ namespace AppleTurnover
             double kbi = peptide.Kbi;
             // if (peptide.Error==double.PositiveInfinity) //first time
             {
-                peptide.Error = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi, timepoints, relativeFractions);
+                peptide.Error = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi, timepoints, relativeFractions);
                 peptide.TemporaryError = peptide.Error;
             }
             double originalError = peptide.Error;
 
-            double updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi + ITERATIVE_SHIFT, timepoints, relativeFractions);
+            double updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi + ITERATIVE_SHIFT, timepoints, relativeFractions);
             bool increaseKbi = true;
             if (!(updatedError < originalError))
             {
-                updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi - ITERATIVE_SHIFT, timepoints, relativeFractions);
+                updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi - ITERATIVE_SHIFT, timepoints, relativeFractions);
                 increaseKbi = false;
             }
 
@@ -468,7 +544,7 @@ namespace AppleTurnover
                         {
                             diff = MAX_KBI - diff - ITERATIVE_SHIFT;
                         }
-                        tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi + diff, timepoints, relativeFractions);
+                        tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi + diff, timepoints, relativeFractions);
                     }
                     else
                     {
@@ -476,7 +552,7 @@ namespace AppleTurnover
                         {
                             diff = kbi - MIN_KBI - ITERATIVE_SHIFT;
                         }
-                        tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi - diff, timepoints, relativeFractions);
+                        tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi - diff, timepoints, relativeFractions);
                     }
 
                     if (!(tempError < updatedError))
@@ -511,11 +587,11 @@ namespace AppleTurnover
                     }
                     originalError = updatedError;
 
-                    updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi + ITERATIVE_SHIFT, timepoints, relativeFractions);
+                    updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi + ITERATIVE_SHIFT, timepoints, relativeFractions);
                     increaseKbi = true;
                     if (!(updatedError < originalError))
                     {
-                        updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi - ITERATIVE_SHIFT, timepoints, relativeFractions);
+                        updatedError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi - ITERATIVE_SHIFT, timepoints, relativeFractions);
                         increaseKbi = false;
                     }
 
@@ -530,7 +606,7 @@ namespace AppleTurnover
                             {
                                 diff = MAX_KBI - diff - ITERATIVE_SHIFT;
                             }
-                            tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi + diff, timepoints, relativeFractions);
+                            tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi + diff, timepoints, relativeFractions);
                         }
                         else
                         {
@@ -538,7 +614,7 @@ namespace AppleTurnover
                             {
                                 diff = kbi - MIN_KBI - ITERATIVE_SHIFT;
                             }
-                            tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, koa, kbi - diff, timepoints, relativeFractions);
+                            tempError = CalculateErrorForThreeCompartmentModelFit(kst, kbt, kao, dX, kbi - diff, timepoints, relativeFractions);
                         }
 
                         if (!(tempError < updatedError))
@@ -583,12 +659,12 @@ namespace AppleTurnover
 
         /// <param name="kst">Constant for amino acid compartment to protein compartment</param>
         /// <param name="kbt">Constant for protein compartment to amino acid compartment</param>
-        /// <param name="koa">Constant for amino acid compartment to waste</param>
+        /// <param name="kao">Constant for amino acid compartment to waste</param>
         /// <param name="kbi">Constant for the protein of interest's degredation</param>
-        private static double CalculateErrorForThreeCompartmentModelFit(double kst, double kbt, double koa, double kbi, double[] timepoints, double[] relativeFraction)
+        private static double CalculateErrorForThreeCompartmentModelFit(double kst, double kbt, double kao, double dX, double kbi, double[] timepoints, double[] relativeFraction)
         {
             double[] residuals = new double[timepoints.Length];
-            double[] predictedValues = PredictRelativeFractionUsingThreeCompartmentModel(kst, kbt, koa, kbi, timepoints);
+            double[] predictedValues = PredictRelativeFractionUsingThreeCompartmentModel(kst, kbt, kao, dX, kbi, timepoints);
 
             for (int i = 0; i < timepoints.Length; i++)
             {
@@ -600,21 +676,21 @@ namespace AppleTurnover
         }
 
         //assumes timepoints are sorted
-        public static double[] PredictRelativeFractionUsingThreeCompartmentModel(double kst, double kbt, double koa, double kbi, double[] timepoints)
+        public static double[] PredictRelativeFractionUsingThreeCompartmentModel(double kst, double kbt, double kao, double dX, double kbi, double[] timepoints)
         {
-            double sumOfStOaBt = kst + kbt + koa;
-            double sqrtForUV = Math.Sqrt(Math.Pow(sumOfStOaBt, 2) - 4 * koa * kbt);
+            double sumOfStOaBt = kst + kbt + kao;
+            double sqrtForUV = Math.Sqrt(Math.Pow(sumOfStOaBt, 2) - 4 * kao * kbt);
             double u = (sumOfStOaBt - sqrtForUV) / 2;
             double v = (sumOfStOaBt + sqrtForUV) / 2;
-            double yu = koa * kbi * (u - kbt) / ((u - v) * (u - kbi) * u);
-            double yv = koa * kbi * (v - kbt) / ((v - u) * (v - kbi) * v);
-            double ykbi = koa * (kbi - kbt) / ((u - kbi) * (v - kbi));
+            double yu = kao * kbi * (u - kbt) / ((u - v) * (u - kbi) * u);
+            double yv = kao * kbi * (v - kbt) / ((v - u) * (v - kbi) * v);
+            double ykbi = kao * (kbi - kbt) / ((u - kbi) * (v - kbi));
 
             double[] predictedValues = new double[timepoints.Length];
             double previousTimepoint = double.NegativeInfinity;
             for (int i = 0; i < timepoints.Length; i++)
             {
-                double t = timepoints[i];
+                double t = Math.Max(timepoints[i] - dX,0); //if organism doesn't ingest food immediately at time zero, there is a time delay. Day 3 might actually be closer to day 2. dX should be positive.
                 if (!t.Equals(previousTimepoint))
                 {
                     previousTimepoint = t;
@@ -628,21 +704,21 @@ namespace AppleTurnover
             return predictedValues;
         }
 
-        public static void UpdateKbiConfidenceInterval(double kst, double kbt, double koa, PeptideTurnoverObject peptide, double ITERATIVE_SHIFT)
+        public static void UpdateKbiConfidenceInterval(double kst, double kbt, double kao, double dX, PeptideTurnoverObject peptide, double ITERATIVE_SHIFT)
         {
             double[] timepoints = peptide.Timepoints;
             //int numMeasurements = timepoints.Length;
             double[] relativeFraction = peptide.RelativeFractions;
             //double[] residuals = new double[numMeasurements];
             double originalKbi = peptide.Kbi; //save it so it doesn't get overwritten
-            //double[] distinctPredictedValues = PredictRelativeFractionUsingThreeCompartmentModel(kst, kbt, koa, peptide.Kbi, timepoints).Distinct().ToArray();
+            //double[] distinctPredictedValues = PredictRelativeFractionUsingThreeCompartmentModel(kst, kbt, kao, peptide.Kbi, timepoints).Distinct().ToArray();
             //double[] uniqueTimePoints = timepoints.Distinct().ToArray();
             List<List<double>> relativeFractionsForEachTimePoint = new List<List<double>>();
             double previousTimepoint = timepoints[0];
 
             int previousI = 0;
             //get predicted values
-            double[] predicted = PredictRelativeFractionUsingThreeCompartmentModel(kst, kbt, koa, peptide.Kbi, timepoints);
+            double[] predicted = PredictRelativeFractionUsingThreeCompartmentModel(kst, kbt, kao, dX, peptide.Kbi, timepoints);
             //find sigma for each timepoint
 
             List<double> sigmasForEachTimePoint = new List<double>();
@@ -732,9 +808,9 @@ namespace AppleTurnover
                 peptide.RelativeFractions = simulatedData;
 
                 //optimize on the simulated data
-                UpdateKbi(kst, kbt, koa, peptide, ITERATIVE_SHIFT);
-                UpdateKbi(kst, kbt, koa, peptide, ITERATIVE_SHIFT / 10);
-                UpdateKbi(kst, kbt, koa, peptide, ITERATIVE_SHIFT / 100);
+                UpdateKbi(kst, kbt, kao, dX, peptide, ITERATIVE_SHIFT);
+                UpdateKbi(kst, kbt, kao, dX, peptide, ITERATIVE_SHIFT / 10);
+                UpdateKbi(kst, kbt, kao, dX, peptide, ITERATIVE_SHIFT / 100);
                 bootstrapKbis[s] = peptide.Kbi;
             }
             ////THE BELOW COMMENTED CODE ALLOWED FOR ONLY ONE SIMULATED POINT PER TIMEPOINT
@@ -756,7 +832,7 @@ namespace AppleTurnover
             //    peptide.RelativeFractions = simulatedData;
 
             //    //optimize on the simulated data
-            //    UpdateKbi(kst, kbt, koa, peptide, ITERATIVE_SHIFT);
+            //    UpdateKbi(kst, kbt, kao, peptide, ITERATIVE_SHIFT);
             //    bootstrapKbis[s] = peptide.Kbi;
             //}
             peptide.Kbi = originalKbi;

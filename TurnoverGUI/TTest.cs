@@ -56,10 +56,10 @@ namespace AppleTurnover
                             double averageKbi = (proteinOne.Kbi + proteinTwo.Kbi) / 2;
                             double normalizedHalfLife = Math.Log(2) / (averageKbi); //this is the day we're going to normalize all of the relative fractions to
 
-                            double[] expectedOriginalRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Koa, proteinOne.Kbi, proteinOne.Timepoints);
-                            double[] expectedUpdatedRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Koa, proteinOne.Kbi, proteinOne.Timepoints);
-                            double[] expectedOriginalRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Koa, proteinTwo.Kbi, proteinTwo.Timepoints);
-                            double[] expectedUpdatedRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Koa, proteinTwo.Kbi, proteinTwo.Timepoints);
+                            double[] expectedOriginalRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Kao, paramsOne.DeltaX, proteinOne.Kbi, proteinOne.Timepoints);
+                            double[] expectedUpdatedRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Kao, paramsOne.DeltaX, proteinOne.Kbi, proteinOne.Timepoints);
+                            double[] expectedOriginalRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Kao, paramsTwo.DeltaX, proteinTwo.Kbi, proteinTwo.Timepoints);
+                            double[] expectedUpdatedRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Kao, paramsTwo.DeltaX, proteinTwo.Kbi, proteinTwo.Timepoints);
                             double[] normalizedRatiosOne = new double[expectedOriginalRatiosOne.Length];
                             double[] normalizedRatiosTwo = new double[expectedOriginalRatiosTwo.Length];
                             for (int index = 0; index < proteinOne.RelativeFractions.Length; index++)
