@@ -482,12 +482,6 @@ namespace AppleTurnover
                 }
             }
 
-            double[] timepoints = new double[200];
-            for (int i = 0; i < timepoints.Length; i++)
-            {
-                timepoints[i] = i / 2.0;
-            }
-
             foreach (PeptideTurnoverObject peptide in peptidesToPlot)
             {
                 //get the title
@@ -651,11 +645,11 @@ namespace AppleTurnover
             foreach (double timepoint in timepoints)
             {
                 var value = dictionaryToPlot[timepoint];
-                PrecisionPlot.plt.PlotScatter(value.Select(x => x.halfLife).ToArray(), value.Select(x => x.relativeFraction).ToArray(), lineWidth: 0, markerSize: 1.5, label: timepoint.ToString());
+                PrecisionPlot.plt.PlotScatter(value.Select(x => x.halfLife).ToArray(), value.Select(x => x.relativeFraction).ToArray(), lineWidth: 0, markerSize: 3, label: timepoint.ToString());
             }
 
             //plt fits for each timepoint on top of the peptide data
-            double[] halflives = new double[499];
+            double[] halflives = new double[2499];
             for (int i = 0; i < halflives.Length; i++)
             {
                 halflives[i] = i / 5.0 + 0.2;
@@ -825,7 +819,7 @@ namespace AppleTurnover
                     }
                 }
             }
-            File.WriteAllLines(@"E:\Chemistry\MusSILAC\TissuePaper\Grid.tsv", results);
+            //File.WriteAllLines(@"E:\Chemistry\MusSILAC\TissuePaper\Grid.tsv", results);
 
         }
 

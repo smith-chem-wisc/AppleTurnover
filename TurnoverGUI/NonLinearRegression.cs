@@ -21,8 +21,9 @@ namespace AppleTurnover
         private const double MAX_KAO_VALUE = 5;
 
         private const double MIN_PARAMETER_VALUE = ITERATIVE_SHIFT * 10;
-        private const int NUM_TRAINING_GROUPS = 6;
-        private const int NUM_TRAINING_POINTS_PER_GROUP = 20;
+        //private const int NUM_TRAINING_GROUPS = 6;
+        //private const int NUM_TRAINING_POINTS_PER_GROUP = 20;
+        private const int NUM_TRAINING_POINTS = 100;
 
         public static PoolParameters RegressionAnalysis(List<PeptideTurnoverObject> peptides, string filePath, Settings settings)
         {
@@ -30,7 +31,7 @@ namespace AppleTurnover
             string filename = Path.GetFileNameWithoutExtension(filePath);
 
             //initial training set
-            List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = new List<PeptideTurnoverObject>(); //peptides.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptides.Count));
+            //List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = new List<PeptideTurnoverObject>(); //peptides.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptides.Count));
             List<string> linesOfDifferentStarts = new List<string>();
 
             //starting values taken from figure 6b of Guan et al., 2011, Anal. Chem. "Compartment Modeling for Mammalian Protein Turnover Studies by Stable Isotope Metabolic Labeling"
@@ -38,22 +39,29 @@ namespace AppleTurnover
             double kbto = 0.026;
             double kaoo = 2.0;
 
+            //get approximate half-lives for each peptide
             UpdateKbi(ksto, kbto, kaoo, peptides);
 
             //split into 6 sections
             //kbi of >0.2, 0.2-0.1, 0.1-0.05, 0.05-0.025, 0.025-0.0125, <0.0125
             //half lives of <3.5, 3.5-6.9, 6.9-13.9, 13.9-27.7, 27.7-55.5, >55.5
-            for (int i = 0; i < NUM_TRAINING_GROUPS; i++)
-            {
-                double currentMin = i == 0 ? 0 : 0.0125 * Math.Pow(2, i - 1);
-                double currentMax = i == 5 ? double.PositiveInfinity : 0.0125 * Math.Pow(2, i);
-                List<PeptideTurnoverObject> peptidesForThisSection = peptides.Where(x => x.Kbi <= currentMax && x.Kbi > currentMin).OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
-                int numPeptidesToAddFromThisSection = Math.Min(peptidesForThisSection.Count, NUM_TRAINING_POINTS_PER_GROUP);
-                for (int j = 0; j < numPeptidesToAddFromThisSection; j++)
-                {
-                    peptidesToDetermineStartingParameters.Add(peptidesForThisSection[j]);
-                }
-            }
+            //for (int i = 0; i < NUM_TRAINING_GROUPS; i++)
+            //{
+            //    double currentMin = i == 0 ? 0 : 0.0125 * Math.Pow(2, i - 1);
+            //    double currentMax = i == 5 ? double.PositiveInfinity : 0.0125 * Math.Pow(2, i);
+            //    List<PeptideTurnoverObject> peptidesForThisSection = peptides.Where(x => x.Kbi <= currentMax && x.Kbi > currentMin).OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
+            //    int numPeptidesToAddFromThisSection = Math.Min(peptidesForThisSection.Count, NUM_TRAINING_POINTS_PER_GROUP);
+            //    for (int j = 0; j < numPeptidesToAddFromThisSection; j++)
+            //    {
+            //        peptidesToDetermineStartingParameters.Add(peptidesForThisSection[j]);
+            //    }
+            //}
+
+            //grab twice as many training points as desired
+            List<PeptideTurnoverObject> innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 4, peptides.Count / 2).ToList();
+            List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = innerQuartilePeptides.OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
+            peptidesToDetermineStartingParameters = peptidesToDetermineStartingParameters.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptidesToDetermineStartingParameters.Count)); //grab a subset
+                        
 
             List<double> kstList = new List<double>();
             List<double> kbtList = new List<double>();
@@ -61,9 +69,8 @@ namespace AppleTurnover
             List<double> errors = new List<double>();
 
             //foreach training point
-            for (int index = 0; index < peptidesToDetermineStartingParameters.Count; index++)
+            foreach (PeptideTurnoverObject peptide in peptidesToDetermineStartingParameters)
             {
-                PeptideTurnoverObject peptide = peptidesToDetermineStartingParameters[index];
                 PoolParameters parameters = new PoolParameters(ksto, kbto, kaoo);
                 OptimizeFit(parameters, new List<PeptideTurnoverObject> { peptide });
 
@@ -79,8 +86,8 @@ namespace AppleTurnover
             //train on test peptides
             OptimizeFit(bestVariables, peptidesToDetermineStartingParameters);
 
-            //train on all peptides
-            OptimizeFit(bestVariables, peptidesToDetermineStartingParameters);
+            //train on inner quartile peptides
+            OptimizeFit(bestVariables, innerQuartilePeptides);
 
             double bestKst = bestVariables.Kst;
             double bestKbt = bestVariables.Kbt;
@@ -109,12 +116,75 @@ namespace AppleTurnover
                         }
                     }
                 }
+                //update inner quartile peptides
+                innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 4, peptides.Count / 2).ToList();
             }
 
-            //train on all peptides again
-            OptimizeFit(bestVariables, peptidesToDetermineStartingParameters);
+            //train on inner quartile peptides again
+            OptimizeFit(bestVariables, innerQuartilePeptides);
 
-            //For each peptide, apply the kst, kbt, and kao, but optimize for the kbi
+            //grid analysis
+            //create array of different ksts, kbts, and kaos to see if we're in a local minimum
+            while (true)
+            {
+                double bestError = double.PositiveInfinity;
+                double[] ratiosForIteration = new double[] { 0.1, 0.2, 0.33, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 4 };
+                for (int i = 0; i < ratiosForIteration.Length; i++)
+                {
+                    double kstCurrent = bestVariables.Kst * ratiosForIteration[i];
+                    if (kstCurrent < MAX_KST_VALUE && kstCurrent > MIN_PARAMETER_VALUE)
+                    {
+                        for (int j = 0; j < ratiosForIteration.Length; j++)
+                        {
+                            double kbtCurrent = bestVariables.Kbt * ratiosForIteration[j];
+                            if (kbtCurrent < MAX_KBT_VALUE && kbtCurrent > MIN_PARAMETER_VALUE)
+                            {
+                                for (int k = 0; k < ratiosForIteration.Length; k++)
+                                {
+                                    double kaoCurrent = bestVariables.Kao * ratiosForIteration[k];
+                                    if (kaoCurrent < MAX_KAO_VALUE && kaoCurrent > MIN_PARAMETER_VALUE)
+                                    {
+                                        UpdateKbi(kstCurrent, kbtCurrent, kaoCurrent, innerQuartilePeptides, ITERATIVE_SHIFT);
+                                        UpdateKbi(kstCurrent, kbtCurrent, kaoCurrent, innerQuartilePeptides, ITERATIVE_SHIFT / 10);
+                                        UpdateKbi(kstCurrent, kbtCurrent, kaoCurrent, innerQuartilePeptides, ITERATIVE_SHIFT / 100);
+
+                                        double currentError = innerQuartilePeptides.Sum(x => x.Error);
+                                        if (currentError < bestError)
+                                        {
+                                            bestError = currentError;
+                                            bestKst = kstCurrent;
+                                            bestKbt = kbtCurrent;
+                                            bestKao = kaoCurrent;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (bestVariables.Kst.Equals(bestKst) &&
+                    bestVariables.Kbt.Equals(bestKbt) &&
+                    bestVariables.Kao.Equals(bestKao))
+                {
+                    break;
+                }
+                else
+                {
+                    bestVariables.Kst = bestKst;
+                    bestVariables.Kbt = bestKbt;
+                    bestVariables.Kao = bestKao;
+
+                    //train on all inner quartile peptides again
+                    OptimizeFit(bestVariables, innerQuartilePeptides);
+                }
+            }
+
+            bestKst = bestVariables.Kst;
+            bestKbt = bestVariables.Kbt;
+            bestKao = bestVariables.Kao;
+
+            //For each peptide, apply the kst, kbt, and kao, and optimize for the kbi
             UpdateKbi(bestKst, bestKbt, bestKao, peptides, ITERATIVE_SHIFT);
             //fine tune
             UpdateKbi(bestKst, bestKbt, bestKao, peptides, ITERATIVE_SHIFT / 10);
@@ -819,7 +889,10 @@ namespace AppleTurnover
             linesToWrite.Add("Protein\tHalf Life\tLowerConfidenceInterval\tUpperConfidenceInterval\tSummed Intensity\tNumber of Ratios\tNumber of Peptides\tPeptideSequences");
             foreach (PeptideTurnoverObject protein in proteinsToReturn)
             {
-                linesToWrite.Add(protein.Protein + '\t' + (Math.Log(2, Math.E) / protein.Kbi).ToString() + '\t' + (Math.Log(2, Math.E) / protein.HighKbi).ToString() + '\t' + (Math.Log(2, Math.E) / protein.LowKbi).ToString() + protein.TotalIntensity.ToString() + '\t' + protein.Timepoints.Length.ToString() + '\t' + protein.Error.ToString() + '\t' + protein.FullSequence);
+                linesToWrite.Add(protein.Protein + '\t' + (Math.Log(2, Math.E) / protein.Kbi).ToString() + '\t' +
+                    (Math.Log(2, Math.E) / protein.HighKbi).ToString() + '\t' + 
+                    (Math.Log(2, Math.E) / protein.LowKbi).ToString() + '\t' + protein.TotalIntensity.ToString() + '\t' + 
+                    protein.Timepoints.Length.ToString() + '\t' + protein.Error.ToString() + '\t' + protein.FullSequence);
             }
 
             //output each peptide with its sequence, kbi, 95% confidence interval, and protein

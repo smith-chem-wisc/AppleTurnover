@@ -57,13 +57,14 @@ namespace AppleTurnover
                             double normalizedHalfLife = Math.Log(2) / (averageKbi); //this is the day we're going to normalize all of the relative fractions to
 
                             double[] expectedOriginalRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Kao, proteinOne.Kbi, proteinOne.Timepoints);
-                            double[] expectedUpdatedRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Kao, proteinOne.Kbi, proteinOne.Timepoints);
+                            double[] expectedUpdatedRatiosOne = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsOne.Kst, paramsOne.Kbt, paramsOne.Kao, averageKbi, proteinOne.Timepoints);
                             double[] expectedOriginalRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Kao, proteinTwo.Kbi, proteinTwo.Timepoints);
-                            double[] expectedUpdatedRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Kao, proteinTwo.Kbi, proteinTwo.Timepoints);
+                            double[] expectedUpdatedRatiosTwo = NonLinearRegression.PredictRelativeFractionUsingThreeCompartmentModel(paramsTwo.Kst, paramsTwo.Kbt, paramsTwo.Kao, averageKbi, proteinTwo.Timepoints);
                             double[] normalizedRatiosOne = new double[expectedOriginalRatiosOne.Length];
                             double[] normalizedRatiosTwo = new double[expectedOriginalRatiosTwo.Length];
                             for (int index = 0; index < proteinOne.RelativeFractions.Length; index++)
                             {
+                                //the normalized ratio is equal to the original ratio minus the original fit to the data plus the fit if the kbi was averaged
                                 normalizedRatiosOne[index] = proteinOne.RelativeFractions[index] - expectedOriginalRatiosOne[index] + expectedUpdatedRatiosOne[index];
                             }
                             for (int index = 0; index < proteinTwo.RelativeFractions.Length; index++)
