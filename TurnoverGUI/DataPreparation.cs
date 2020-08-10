@@ -436,7 +436,7 @@ namespace AppleTurnover
                         }
                         if (!protein.Equals(currentPeptide.Protein))
                         { //why aren't they the same? Parsimony
-                            currentPeptide.Protein = protein;
+                            currentPeptide.UpdateProteinFromParsimony(protein);
                         }
 
                         if (proteinsContainingThisSeq.Count > 1)

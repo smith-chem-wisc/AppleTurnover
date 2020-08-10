@@ -229,18 +229,26 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <Label x:Name="SearchLabel" Content="Protein Lookup:" Margin="11 10 0 5"/>
-                                    <TextBox x:Name="ProteinSearchTextBox" TextChanged="ProteinSearchTextBox_TextChanged" Width="85" HorizontalAlignment="Left" Margin="0 10 0 5"/>
                                     <StackPanel Orientation="Vertical">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Label x:Name="SearchLabel" Content="Protein Lookup:" Margin="11 10 0 5"/>
+                                            <TextBox x:Name="ProteinSearchTextBox" TextChanged="ProteinSearchTextBox_TextChanged" Width="85" HorizontalAlignment="Left" Margin="2 10 0 5"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Label x:Name="PeptideSearchLabel" Content="Peptide Lookup:" Margin="11 0 0 5"/>
+                                            <TextBox x:Name="PeptidenSearchTextBox" TextChanged="ProteinSearchTextBox_TextChanged" Width="85" HorizontalAlignment="Left" Margin="0 0 0 5"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Vertical" Margin="11 10 0 5">
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton x:Name="proteinSpecificRadioButton" GroupName="specificVis" Content="View Protein Level" Click="SpecificVisualization_Click"  HorizontalAlignment="Left" Margin="50 5 0 5"/>
                                             <RadioButton x:Name="proteoformSpecificRadioButton" GroupName="specificVis" Content="View Proteoform Level" Click="SpecificVisualization_Click" HorizontalAlignment="Left" Margin="20 5 0 5"/>
                                         </StackPanel>
-                                        <CheckBox x:Name="showFullSequenceCheckbox" Content="Show Modifications" Click="SpecificVisualization_Click" Margin="50 0 0 0"/>
+                                        <CheckBox x:Name="showFullSequenceCheckbox" Content="Show Modifications" Click="SpecificVisualization_Click" Margin="50 10 0 0"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <DataGrid x:Name="DisplayPeptidesDataGrid" AutoGenerateColumns="False" ItemsSource="{Binding}" 
-                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="10,0,10,0" Height="780"
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="10,10,10,0" Height="730"
                                         SelectedCellsChanged="PeptideDataGrid_SelectedCellsChanged" CanUserDeleteRows="false" CanUserAddRows="false">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Peptide" Binding="{Binding DisplayPeptideSequence}"></DataGridTextColumn>
@@ -263,17 +271,17 @@
                                             <ColumnDefinition Width="3*"/>
                                         </Grid.ColumnDefinitions>
                                         <DataGrid x:Name="HiddenSamplesDataGrid" Grid.Row="0" AutoGenerateColumns="False" VerticalAlignment="Stretch" ItemsSource="{Binding}" 
-                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,36,0,0" Height="75"
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,0,0,0" Height="75"
                                         CanUserDeleteRows="false" CanUserAddRows="false">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Hidden Samples " Binding="{Binding BindsDirectlyToSource=True}"></DataGridTextColumn>
                                             </DataGrid.Columns>
                                         </DataGrid>
-                                        <Button x:Name="ChangeSamplesDisplayed" Margin="0,35,0,0" Grid.Column="1" Height="50" Width="70" HorizontalAlignment="Center" VerticalAlignment="Center" Click="ChangeFilesToPlotSpecificData_Click">
+                                        <Button x:Name="ChangeSamplesDisplayed" Margin="0,0,0,0" Grid.Column="1" Height="50" Width="70" HorizontalAlignment="Center" VerticalAlignment="Center" Click="ChangeFilesToPlotSpecificData_Click">
                                             <TextBlock TextWrapping="Wrap" TextAlignment="Center">Move Selected File(s)</TextBlock>
                                         </Button>
                                         <DataGrid x:Name="DisplayedSamplesDataGrid" Grid.Column="2" AutoGenerateColumns="False" VerticalAlignment="Stretch" ItemsSource="{Binding}" 
-                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,35,0,0" 
+                                        IsReadOnly="True" ScrollViewer.CanContentScroll="True" Margin="0,0,0,0" 
                                         CanUserDeleteRows="false" CanUserAddRows="false">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Displayed Samples " Binding="{Binding  BindsDirectlyToSource=True}"></DataGridTextColumn>

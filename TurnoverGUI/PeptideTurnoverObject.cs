@@ -10,8 +10,8 @@ namespace AppleTurnover
     {
         public string FullSequence { get; set; }
         public string BaseSequence { get; set; }
-        public string Protein { get; set; }
-        public string Proteoform { get; set; }
+        public string Protein { get; private set; }
+        public string Proteoform { get; private set; }
         public double[] Timepoints { get; set; }
         public double[] RelativeFractions { get; set; }
         public string[] Filenames { get; set; }
@@ -45,9 +45,8 @@ namespace AppleTurnover
 
             Protein = protein;
             DisplayProteinOrProteoform = protein;
-            if(proteoform!=null && proteoform.Contains("@"))
-            { }
             Proteoform = proteoform ?? protein;
+
 
             //sort by timepoints
             for (int i = 1; i < timepoints.Length; i++)
@@ -121,6 +120,12 @@ namespace AppleTurnover
                 }
             }
             return cleanedSeq;
+        }
+
+        public void UpdateProteinFromParsimony(string protein)
+        {
+            Protein = protein;
+            Proteoform = protein;
         }
 
         public void UpdateDisplayProteinOrProteoform(bool displayProtein, bool displayFullSequence)

@@ -114,6 +114,7 @@ namespace AppleTurnover
                 case ".tsv":
                 case ".psmtsv":
                 case ".txt":
+                    filepath = filepath.Replace("_ApplETurnoverSavedSession.tsv", ".tsv"); //replace quickload, if applicable
                     if (!DataFilesObservableCollection.Any(x => x.FilePath.Equals(filepath)))
                     {
                         DataFilesObservableCollection.Add(new RawDataForDataGrid(filepath));
@@ -194,29 +195,7 @@ namespace AppleTurnover
                 string inputFile = file;
                 string directory = Directory.GetParent(inputFile).FullName;
                 string filename = Path.GetFileNameWithoutExtension(inputFile); //can be either the fast load file or the original input
-                //if the user gave the fast load file
-                if (filename.Contains("_ApplETurnoverSavedSession"))
-                {
-                    filename = filename.Replace("_ApplETurnoverSavedSession", "");
-                    string updatedPath = inputFile.Replace("_ApplETurnoverSavedSession", "");
-                    //if the user grabbed the saved session and the original input file, remove the session
-                    var badFile = DataFilesObservableCollection.Where(x => x.FilePath.Equals(inputFile)).FirstOrDefault();
-
-                    if (DataFilesObservableCollection.Select(x => x.FilePath).Contains(updatedPath))
-                    {
-                        DataFilesObservableCollection.Remove(badFile);
-                    }
-                    else //treat this as the original input file
-                    {
-                        badFile.RemoveSessionTag();
-                    }
-                    inputFile = updatedPath;
-                    Dispatcher.Invoke(() =>
-                    {
-                        dataGridPeptideFiles.CommitEdit(DataGridEditingUnit.Row, true);
-                        dataGridPeptideFiles.Items.Refresh();
-                    });
-                }
+                
                 string fastLoadFile = Path.Combine(directory, filename + "_ApplETurnoverSavedSession.tsv");
                 if (File.Exists(fastLoadFile))
                 {
@@ -310,7 +289,7 @@ namespace AppleTurnover
                         AnalyzedProteins.AddRange(proteins);
                         AnalyzedProteoforms.AddRange(proteoforms);
                         PoolParameterDictionary.Add(file, poolParams);
-                        PlotFit(poolParams, "Free Amino Acids");
+                        PlotFit(poolParams, Path.GetFileNameWithoutExtension(file)+ " Free Amino Acids");
 
                         //save results to allow for quick loading in the future
                         string directory = Directory.GetParent(file).FullName;
@@ -508,7 +487,7 @@ namespace AppleTurnover
             {
                 foreach (string file in FilesToDisplayObservableCollection)
                 {
-                    PlotFit(PoolParameterDictionary[file], "Free Amino Acids");
+                    PlotFit(PoolParameterDictionary[file], Path.GetFileNameWithoutExtension(file)+" Free Amino Acids");
                 }
             }
 
@@ -522,13 +501,14 @@ namespace AppleTurnover
                 //get the title
                 int fontSize =  Math.Max(Math.Min(24, 100 / (int)Math.Round(Math.Sqrt(peptide.DisplayPeptideSequence.Length))),12);
                 RatioComparisonPlot.plt.Title(peptide.DisplayPeptideSequence, fontSize: fontSize);
-                //plot actual data
-                RatioComparisonPlot.plt.PlotScatter(peptide.Timepoints, peptide.RelativeFractions, markerSize: 4, lineWidth: 0, label: "Observed Ratios");
 
-                //Plot protein info
                 string protein = peptide.DisplayProteinOrProteoform;
                 string filepath = peptide.FileName;
                 string filename = Path.GetFileNameWithoutExtension(filepath);
+                //plot actual data
+                RatioComparisonPlot.plt.PlotScatter(peptide.Timepoints, peptide.RelativeFractions, markerSize: 4, lineWidth: 0, label: filename + " Observed Ratios");
+
+                //Plot protein info
                 List<PeptideTurnoverObject> peptidesSharingProteinAndFile = PeptidesToDisplay.Where(x => x.DisplayProteinOrProteoform.Equals(protein) && x.FileName.Equals(filepath)).ToList();
                 double[] errors = peptidesSharingProteinAndFile.Select(x => x.Error).ToArray();
                 double[] halfLives = peptidesSharingProteinAndFile.Select(x => Math.Log(2, Math.E) / x.Kbi).ToArray();
@@ -572,6 +552,12 @@ namespace AppleTurnover
                 PeptideTurnoverObject currentProtein = DisplayProteinInSpecificTable ? 
                     AnalyzedProteins.Where(x => x.Protein.Equals(protein) && x.FileName.Equals(filepath)).FirstOrDefault() : 
                     AnalyzedProteoforms.Where(x => x.Proteoform.Equals(protein) && x.FileName.Equals(filepath)).FirstOrDefault();
+
+                if(currentProtein==null)
+                {
+                    MessageBox.Show("Unable to find the protein for this peptide. There may be an issue with the loaded file.");
+                    return;
+                }
 
                 //plot the fit
                 if (PlotBestFitCheckBox.IsChecked.Value)
@@ -642,16 +628,37 @@ namespace AppleTurnover
         {
             PeptidesToDisplay.Clear();
 
-            //if using search criteria
-            if (ProteinSearchTextBox.Text.Length >= 3)
+            //check if using search criteria
+            string proteinText = ProteinSearchTextBox.Text;
+            string peptideText = PeptidenSearchTextBox.Text;
+            int proteinLength = proteinText.Length;
+            //if filtering by both protein and peptide
+            if (ProteinSearchTextBox.Text.Length >= 3 && PeptidenSearchTextBox.Text.Length >= 3)
             {
-                string text = ProteinSearchTextBox.Text;
-                int length = text.Length;
-                foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.Protein.Substring(0, Math.Min(length, x.Protein.Length)).Equals(text)))
+                foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) 
+                && x.Protein.Substring(0, Math.Min(proteinLength, x.Protein.Length)).Equals(proteinText) 
+                && x.DisplayPeptideSequence.Contains(peptideText)))
+                {
+                    PeptidesToDisplay.Add(peptide);
+                } 
+            }
+            //if filtering by just protein
+            else if(ProteinSearchTextBox.Text.Length >= 3)
+            {
+                foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.Protein.Substring(0, Math.Min(proteinLength, x.Protein.Length)).Equals(proteinText)))
                 {
                     PeptidesToDisplay.Add(peptide);
                 }
             }
+            //if filtering by just peptide
+            else if(PeptidenSearchTextBox.Text.Length >= 3)
+            {
+                foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.DisplayPeptideSequence.Contains(peptideText)))
+                {
+                    PeptidesToDisplay.Add(peptide);
+                }
+            }
+            //if not filtering
             else
             {
                 foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName)))
@@ -957,7 +964,7 @@ namespace AppleTurnover
             AllPeptides.Clear();
             AnalyzedProteins.Clear();
             AnalyzedProteoforms.Clear();
-            return DataFilesObservableCollection.Select(x => x.FilePath.Replace("_ApplETurnoverSavedSession.",".")).ToList();
+            return DataFilesObservableCollection.Select(x => x.FilePath).ToList();
         }
     }
 }
