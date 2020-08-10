@@ -61,7 +61,7 @@ namespace AppleTurnover
             List<PeptideTurnoverObject> innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 4, peptides.Count / 2).ToList();
             List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = innerQuartilePeptides.OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
             peptidesToDetermineStartingParameters = peptidesToDetermineStartingParameters.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptidesToDetermineStartingParameters.Count)); //grab a subset
-                        
+
 
             List<double> kstList = new List<double>();
             List<double> kbtList = new List<double>();
@@ -201,10 +201,15 @@ namespace AppleTurnover
     });
 
             List<string> linesToWrite = new List<string>();
-            linesToWrite.Add("Peptide\tProtein\tHalf Life\tLowerConfidenceInterval\tUpperConfidenceInterval\tError (MSE)\tSummed Intensity\tNumber of Ratios");
-            foreach (PeptideTurnoverObject peptide in peptides)
+            linesToWrite.Add("Peptide\tProtein\tProteoform\tHalf-life\tLowerConfidenceInterval\tUpperConfidenceInterval\tError (MSE)\tSummed Intensity\tNumber of Ratios");
+            string previousFullSeq = "";
+            foreach (PeptideTurnoverObject peptide in peptides.OrderBy(x=>x.FullSequence))
             {
-                linesToWrite.Add(peptide.FullSequence + '\t' + peptide.Protein + '\t' + (Math.Log(2, Math.E) / peptide.Kbi).ToString() + '\t' + (Math.Log(2, Math.E) / peptide.HighKbi).ToString() + '\t' + (Math.Log(2, Math.E) / peptide.LowKbi).ToString() + '\t' + peptide.Error.ToString() + '\t' + peptide.TotalIntensity.ToString() + '\t' + peptide.Timepoints.Length.ToString());
+                if (!previousFullSeq.Equals(peptide.FullSequence))
+                {
+                    previousFullSeq = peptide.FullSequence;
+                    linesToWrite.Add(peptide.FullSequence + '\t' + peptide.Protein + '\t'+peptide.Proteoform + '\t' + (Math.Log(2, Math.E) / peptide.Kbi).ToString() + '\t' + (Math.Log(2, Math.E) / peptide.HighKbi).ToString() + '\t' + (Math.Log(2, Math.E) / peptide.LowKbi).ToString() + '\t' + peptide.Error.ToString() + '\t' + peptide.TotalIntensity.ToString() + '\t' + peptide.Timepoints.Length.ToString());
+                }
             }
             //output each peptide with its sequence, kbi, 95% confidence interval, and protein
             File.WriteAllLines(Path.Combine(directory, filename + "_PeptideTurnoverResults.tsv"), linesToWrite);
@@ -767,8 +772,8 @@ namespace AppleTurnover
             //}
 
             int NUM_SIMULATIONS = 200;
-            int lowPercentile = (int)Math.Round(NUM_SIMULATIONS * 2.5 / 100); //2.5 percentile
-            int highPercentile = (int)Math.Round(NUM_SIMULATIONS * 97.5 / 100); //97.5 percentile
+            int lowPercentile = (int)Math.Round((NUM_SIMULATIONS-1) * 2.5 / 100); //2.5 percentile
+            int highPercentile = (int)Math.Round((NUM_SIMULATIONS-1) * 97.5 / 100); //97.5 percentile
 
             //simulate data through monte carlo (or bootstrapping, commented out)
             Random rng = new Random(1);
@@ -839,12 +844,11 @@ namespace AppleTurnover
             peptide.MonteCarloKbis = bootstrapKbis;
         }
 
-        public static List<PeptideTurnoverObject> GetProteinInfo(List<PeptideTurnoverObject> peptides, string filePath)
+        public static List<PeptideTurnoverObject> GetProteinInfo(List<PeptideTurnoverObject> peptides, string filePath, List<IGrouping<string, PeptideTurnoverObject>> grouping, string analysisType)
         {
             //group peptides by protein
             List<PeptideTurnoverObject> proteinsToReturn = new List<PeptideTurnoverObject>();
-            var proteinGroups = peptides.GroupBy(x => x.Protein).ToList();
-            foreach (var group in proteinGroups)
+            foreach (var group in grouping)
             {
                 string proteinName = group.Key;
                 var peptidesForThisProtein = group.OrderBy(x => x.BaseSequence).ThenBy(x => x.FullSequence).ToList();
@@ -874,9 +878,14 @@ namespace AppleTurnover
                 //get important measurements
                 PeptideTurnoverObject protein = new PeptideTurnoverObject(allPeptideSequences, timepoints.ToArray(), rfs.ToArray(),
                     filenames.ToArray(), intensities.ToArray(), intensity, peptides.First().FileName, proteinName);
-                protein.Kbi = kbis[kbis.Count / 2];
-                protein.LowKbi = kbis[(int)Math.Round(kbis.Count * 2.5 / 100)]; //2.5 percentile
-                protein.HighKbi = kbis[(int)Math.Round(kbis.Count * 97.5 / 100)]; //97.5 percentile
+
+                //we do 200*n iterations, so we want the average half-life (not kbi) of the 99*nth and 100*nth index to get the median half-life. Then transform back to kbi
+                double medianHalfLifeLow = Math.Log(2, Math.E) / kbis[kbis.Count / 2 - 1];
+                double medianHalfLifeHigh = Math.Log(2, Math.E) / kbis[kbis.Count / 2];
+                double medianHalfLife = (medianHalfLifeHigh + medianHalfLifeLow) / 2;
+                protein.Kbi = Math.Log(2, Math.E) / medianHalfLife; 
+                protein.LowKbi = kbis[(int)Math.Round((kbis.Count-1) * 2.5 / 100)]; //2.5 percentile
+                protein.HighKbi = kbis[(int)Math.Round((kbis.Count - 1) * 97.5 / 100)]; //97.5 percentile
                 protein.MonteCarloKbis = kbis.ToArray();
                 protein.Error = peptidesForThisProtein.Count; //not the actual error
                 proteinsToReturn.Add(protein);
@@ -890,13 +899,13 @@ namespace AppleTurnover
             foreach (PeptideTurnoverObject protein in proteinsToReturn)
             {
                 linesToWrite.Add(protein.Protein + '\t' + (Math.Log(2, Math.E) / protein.Kbi).ToString() + '\t' +
-                    (Math.Log(2, Math.E) / protein.HighKbi).ToString() + '\t' + 
-                    (Math.Log(2, Math.E) / protein.LowKbi).ToString() + '\t' + protein.TotalIntensity.ToString() + '\t' + 
+                    (Math.Log(2, Math.E) / protein.HighKbi).ToString() + '\t' +
+                    (Math.Log(2, Math.E) / protein.LowKbi).ToString() + '\t' + protein.TotalIntensity.ToString() + '\t' +
                     protein.Timepoints.Length.ToString() + '\t' + protein.Error.ToString() + '\t' + protein.FullSequence);
             }
 
             //output each peptide with its sequence, kbi, 95% confidence interval, and protein
-            File.WriteAllLines(Path.Combine(directory, filename + "_ProteinTurnoverResults.tsv"), linesToWrite);
+            File.WriteAllLines(Path.Combine(directory, filename + "_" + analysisType + "TurnoverResults.tsv"), linesToWrite);
 
             return proteinsToReturn;
         }

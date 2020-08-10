@@ -100,18 +100,18 @@ namespace AppleTurnover
             {
                 string filename = filenames[fileIndex];
                 PoolParameters poolParams = poolParameterDictionary[filename];
-                List<PeptideTurnoverObject> proteinsForThisFile = allProteins.Where(x => filename.Equals(x.FileName)).OrderBy(x => x.Protein).ToList();
+                List<PeptideTurnoverObject> proteinsForThisFile = allProteins.Where(x => filename.Equals(x.FileName)).OrderBy(x => x.Proteoform).ToList();
                 List<string> linesToWrite = new List<string>();
                 linesToWrite.Add("Protein A\tProtein B\tHalf-life A\tHalf-life B\tFold Change\tNeg. log(p-Value)");
 
                 int indexOfNextProteoformFamily = 0;
                 for (int i = 0; i < proteinsForThisFile.Count; i++)
                 {
-                    string currentProtein = proteinsForThisFile[i].Protein.Split('_')[0];
+                    string currentProtein = proteinsForThisFile[i].Proteoform.Split('_')[0];
                     indexOfNextProteoformFamily++;
                     for (; indexOfNextProteoformFamily < proteinsForThisFile.Count; indexOfNextProteoformFamily++)
                     {
-                        if (!currentProtein.Equals(proteinsForThisFile[indexOfNextProteoformFamily].Protein.Split('_')[0]))
+                        if (!currentProtein.Equals(proteinsForThisFile[indexOfNextProteoformFamily].Proteoform.Split('_')[0]))
                         {
                             break;
                         }
@@ -129,12 +129,12 @@ namespace AppleTurnover
                             TestResult result = Sample.StudentTTest(sampleOne, sampleTwo);
                             try //sometimes crashes if stdev is zero
                             {
-                                linesToWrite.Add(proteinOne.Protein + "\t" + proteinTwo.Protein + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
+                                linesToWrite.Add(proteinOne.Proteoform + "\t" + proteinTwo.Proteoform + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
                                     (Math.Log2(sampleTwo.Median) - Math.Log2(sampleOne.Median)).ToString() + '\t' + (-1 * Math.Log(result.Probability)).ToString());
                             }
                             catch
                             {
-                                linesToWrite.Add(proteinOne.Protein + "\t" + proteinTwo.Protein + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
+                                linesToWrite.Add(proteinOne.Proteoform + "\t" + proteinTwo.Proteoform + '\t' + sampleOne.Median.ToString() + '\t' + sampleTwo.Median.ToString() + '\t' +
                                 (Math.Log2(sampleTwo.Median) - Math.Log2(sampleOne.Median)).ToString() + '\t' + "NA");
                             }
                         }

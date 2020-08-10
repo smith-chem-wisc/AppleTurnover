@@ -394,6 +394,7 @@ namespace AppleTurnover
             //sort
             peptides = peptides.Where(x => x.RelativeFractions.Length != 0).OrderBy(x => x.BaseSequence).ToList();
 
+            //do reverse parsimony
             int[] threads = Enumerable.Range(0, Environment.ProcessorCount).ToArray();
             //int[] threads = Enumerable.Range(0, 1).ToArray();
             Parallel.ForEach(threads, (thread) =>
@@ -495,7 +496,7 @@ namespace AppleTurnover
             });
 
             //have all peptides, now convert into proteins
-            List<PeptideTurnoverObject> proteins = new List<PeptideTurnoverObject>();
+            List<PeptideTurnoverObject> possibleProteoformGroups = new List<PeptideTurnoverObject>();
             var peptidesGroupedByProtein = peptides.GroupBy(x => x.Protein, x => x).ToList();
 
             //TODO parallelize this, break out into separate method, unit tests
@@ -510,8 +511,8 @@ namespace AppleTurnover
                 foreach (PeptideTurnoverObject peptide in peptidesForThisProtein)
                 {
                     for (int residue = peptide.StartResidue; residue < peptide.EndResidue; residue++)
-                    {//is residue start/end correct?
-
+                    {
+                        //is residue start/end correct?
                         string value = UnmodifiedString;
                         if (peptide.ModDictionary.ContainsKey(residue - peptide.StartResidue)) //the mod dictionary is zero-based.
                         {
@@ -530,9 +531,7 @@ namespace AppleTurnover
                         }
                     }
                 }
-                //split up the single protein group into "proteoform groups"
-                List<PeptideTurnoverObject> peptidesForTheBroadestProteoformGroup = new List<PeptideTurnoverObject> { };
-                List<List<PeptideTurnoverObject>> proteoformGroupsForThisProteinGroup = new List<List<PeptideTurnoverObject>>();
+
                 //find which residues have multiple forms
                 var residueDifferences = mods.Where(x => x.Value.Count > 1).OrderBy(x => x.Key).ToList();
                 bool[] uniquePeptides = new bool[peptidesForThisProtein.Count]; //have we added this peptide already? At the start, none have been added.
@@ -562,8 +561,7 @@ namespace AppleTurnover
                                 {
                                     if (residueDifference.Value[indexForThisMod].Equals(modForThisPeptide))
                                     {
-                                        proteins.Add(peptide.Copy(peptide.Protein + "_" + modForThisPeptide + "@" + residueDifference.Key.ToString()));
-                                        //proteoformGroupsForThisResidue[indexForThisMod].Add(peptide);
+                                        possibleProteoformGroups.Add(peptide.Copy(peptide.Protein + "_" + modForThisPeptide + "@" + residueDifference.Key.ToString()));
                                         break;
                                     }
                                 }
@@ -582,12 +580,12 @@ namespace AppleTurnover
                 {
                     if (!uniquePeptides[index])
                     {
-                        proteins.Add(peptidesForThisProtein[index]);
+                        possibleProteoformGroups.Add(peptidesForThisProtein[index]);
                     }
                 }
             }
 
-            return proteins.Where(x => x.Timepoints.Length >= settings.MinValidValuesTotal).OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
+            return possibleProteoformGroups; //.Where(x => x.Timepoints.Length >= settings.MinValidValuesTotal).OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
         }
 
         //Remove peptides that are shared in multiple proteins
@@ -661,48 +659,52 @@ namespace AppleTurnover
             return proteinList.Where(p => p.BaseSequence.Length > 0).ToList();
         }
 
-        public static bool LoadExistingResults(string inputfile, string fileToLoad, Dictionary<string, PoolParameters> poolParameterDictionary, ObservableCollection<PeptideTurnoverObject> peptides, List<PeptideTurnoverObject> proteins)
+        public static bool LoadExistingResults(string inputFile, string fileToLoad, Dictionary<string, PoolParameters> poolParameterDictionary, ObservableCollection<PeptideTurnoverObject> peptides, List<PeptideTurnoverObject> proteins, List<PeptideTurnoverObject> proteoforms)
         {
-            try
+           // try
             {
                 string[] lines = File.ReadAllLines(fileToLoad);
                 //We need to read in the:
                 //-pool parameters
                 double[] poolParams = lines[0].Split('\t').Select(x => Convert.ToDouble(x)).ToArray();
-                poolParameterDictionary[inputfile] = new PoolParameters(poolParams[0], poolParams[1], poolParams[2]);
+                poolParameterDictionary[inputFile] = new PoolParameters(poolParams[0], poolParams[1], poolParams[2]);
 
                 //-peptides
                 int i = 1;
                 for (; i < lines.Length; i++)
                 {
                     string[] line = lines[i].Split('\t').ToArray();
-                    if (line.Length == 12)
+                    if (line.Length == 1)
                     {
-                        PeptideTurnoverObject peptide = new PeptideTurnoverObject(
-                            line[0],
-                            line[1].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
-                            line[2].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
-                            line[3].Split(';'),
-                            line[4].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
-                            Convert.ToDouble(line[5]),
-                            line[6],
-                            line[7]);
-                        peptide.Kbi = Convert.ToDouble(line[8]);
-                        peptide.Error = Convert.ToDouble(line[9]);
-                        peptide.LowKbi = Convert.ToDouble(line[10]);
-                        peptide.HighKbi = Convert.ToDouble(line[11]);
-                        peptides.Add(peptide);
-                    }
-                    else
-                    {
+                        i++;
                         break;
                     }
+                    PeptideTurnoverObject peptide = new PeptideTurnoverObject(
+                        line[0],
+                        line[1].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
+                        line[2].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
+                        line[3].Split(';'),
+                        line[4].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
+                        Convert.ToDouble(line[5]),
+                        inputFile, //file
+                        line[7],
+                        line[8]);
+                    peptide.Kbi = Convert.ToDouble(line[9]);
+                    peptide.Error = Convert.ToDouble(line[10]);
+                    peptide.LowKbi = Convert.ToDouble(line[11]);
+                    peptide.HighKbi = Convert.ToDouble(line[12]);
+                    peptides.Add(peptide);
+
                 }
                 //-Proteins
                 for (; i < lines.Length; i++)
                 {
                     string[] line = lines[i].Split('\t').ToArray();
-
+                    if (line.Length == 1)
+                    {
+                        i++;
+                        break;
+                    }
                     PeptideTurnoverObject protein = new PeptideTurnoverObject(
                         line[0],
                         line[1].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
@@ -710,22 +712,41 @@ namespace AppleTurnover
                         line[3].Split(';'),
                         line[4].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
                         Convert.ToDouble(line[5]),
-                        line[6],
+                        inputFile, //file
                         line[7]);
                     protein.Kbi = Convert.ToDouble(line[8]);
                     protein.LowKbi = Convert.ToDouble(line[9]);
                     protein.HighKbi = Convert.ToDouble(line[10]);
                     proteins.Add(protein);
                 }
+                //-Proteoforms
+                for (; i < lines.Length; i++)
+                {
+                    string[] line = lines[i].Split('\t').ToArray();
+
+                    PeptideTurnoverObject proteoform = new PeptideTurnoverObject(
+                        line[0],
+                        line[1].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
+                        line[2].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
+                        line[3].Split(';'),
+                        line[4].Split(';').Select(x => Convert.ToDouble(x)).ToArray(),
+                        Convert.ToDouble(line[5]),
+                        inputFile, //file
+                        line[7]);
+                    proteoform.Kbi = Convert.ToDouble(line[8]);
+                    proteoform.LowKbi = Convert.ToDouble(line[9]);
+                    proteoform.HighKbi = Convert.ToDouble(line[10]);
+                    proteoforms.Add(proteoform);
+                }
                 return true;
             }
-            catch
+           // catch
             {
                 return false;
             }
         }
 
-        public static void WriteResults(string fileToWrite, PoolParameters poolParams, List<PeptideTurnoverObject> peptides, List<PeptideTurnoverObject> proteins)
+        public static void WriteQuickLoadFile(string fileToWrite, PoolParameters poolParams, List<PeptideTurnoverObject> peptides, List<PeptideTurnoverObject> proteins, List<PeptideTurnoverObject> proteoforms)
         {
             List<string> linesToWrite = new List<string>();
             //We need to write the:
@@ -743,11 +764,13 @@ namespace AppleTurnover
                     peptide.TotalIntensity.ToString() + '\t' +
                     peptide.FileName + '\t' +
                     peptide.Protein + '\t' +
+                    peptide.Proteoform + '\t' +
                     peptide.Kbi.ToString() + '\t' +
                     peptide.Error.ToString() + '\t' +
                     peptide.LowKbi.ToString() + '\t' +
                     peptide.HighKbi.ToString());
             }
+            linesToWrite.Add("-");
             //-Proteins
             foreach (PeptideTurnoverObject protein in proteins)
             {
@@ -764,7 +787,23 @@ namespace AppleTurnover
                     protein.LowKbi.ToString() + '\t' +
                     protein.HighKbi.ToString());
             }
-
+            linesToWrite.Add("-");
+            //-Proteoforms
+            foreach (PeptideTurnoverObject proteoform in proteoforms)
+            {
+                linesToWrite.Add(
+                    proteoform.FullSequence + '\t' +
+                    string.Join(';', proteoform.Timepoints) + '\t' +
+                    string.Join(';', proteoform.RelativeFractions) + '\t' +
+                    string.Join(';', proteoform.Filenames) + '\t' +
+                    string.Join(';', proteoform.Intensities) + '\t' +
+                    proteoform.TotalIntensity.ToString() + '\t' +
+                    proteoform.FileName + '\t' +
+                    proteoform.Protein + '\t' +
+                    proteoform.Kbi.ToString() + '\t' +
+                    proteoform.LowKbi.ToString() + '\t' +
+                    proteoform.HighKbi.ToString());
+            }
             File.WriteAllLines(fileToWrite, linesToWrite);
         }
     }
