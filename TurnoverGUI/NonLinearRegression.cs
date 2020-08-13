@@ -59,6 +59,7 @@ namespace AppleTurnover
 
             //grab twice as many training points as desired
             List<PeptideTurnoverObject> innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 4, peptides.Count / 2).ToList();
+            //List<PeptideTurnoverObject> innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 100 * 5, peptides.Count / 100 * 90).ToList();
             List<PeptideTurnoverObject> peptidesToDetermineStartingParameters = innerQuartilePeptides.OrderByDescending(x => x.Timepoints.Length).ThenByDescending(x => x.TotalIntensity).ToList();
             peptidesToDetermineStartingParameters = peptidesToDetermineStartingParameters.GetRange(0, Math.Min(NUM_TRAINING_POINTS, peptidesToDetermineStartingParameters.Count)); //grab a subset
 
@@ -67,6 +68,9 @@ namespace AppleTurnover
             List<double> kbtList = new List<double>();
             List<double> kaoList = new List<double>();
             List<double> errors = new List<double>();
+
+            List<double> trainingHL = peptidesToDetermineStartingParameters.Select(x => x.Halflife).ToList();
+            List<double> allHL = innerQuartilePeptides.Select(x => x.Halflife).ToList();
 
             //foreach training point
             foreach (PeptideTurnoverObject peptide in peptidesToDetermineStartingParameters)
@@ -93,6 +97,8 @@ namespace AppleTurnover
             double bestKbt = bestVariables.Kbt;
             double bestKao = bestVariables.Kao;
 
+            OptimizeFit(bestVariables, innerQuartilePeptides);
+
             //For each peptide, apply the kst, kbt, and kao, but optimize for the kbi
             UpdateKbi(bestKst, bestKbt, bestKao, peptides, ITERATIVE_SHIFT);
             //fine tune
@@ -118,6 +124,7 @@ namespace AppleTurnover
                 }
                 //update inner quartile peptides
                 innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 4, peptides.Count / 2).ToList();
+                //innerQuartilePeptides = peptides.OrderBy(x => x.Kbi).ToList().GetRange(peptides.Count / 100 * 5, peptides.Count / 100 * 90).ToList();
             }
 
             //train on inner quartile peptides again
@@ -240,7 +247,7 @@ namespace AppleTurnover
                 PoolParameters variables = new PoolParameters(kst, kbt, kao);
 
                 //KST
-                if (kst + ITERATIVE_SHIFT < Math.Min(MAX_KST_VALUE, kao))
+                if (kst + ITERATIVE_SHIFT < MAX_KST_VALUE) // Math.Min(MAX_KST_VALUE, kao))
                 {
                     UpdateKbi(kst + ITERATIVE_SHIFT, kbt, kao, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
@@ -250,7 +257,9 @@ namespace AppleTurnover
                 {
                     updatedError = double.PositiveInfinity;
                 }
-                if (!(updatedError < previousError) && kst - ITERATIVE_SHIFT > Math.Max(MIN_PARAMETER_VALUE, kbt))
+
+                //if not a good move, try going the other way
+                if (!(updatedError < previousError) && kst - ITERATIVE_SHIFT > MIN_PARAMETER_VALUE)//Math.Max(MIN_PARAMETER_VALUE, kbt))
                 {
                     UpdateKbi(kst - ITERATIVE_SHIFT, kbt, kao, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
@@ -267,7 +276,7 @@ namespace AppleTurnover
                         double tempError = double.PositiveInfinity;
                         if (increaseParameter)
                         {
-                            if (kst + diff < Math.Min(MAX_KST_VALUE, kao)) //kst should be less than kao
+                            if (kst + diff < kao)//Math.Min(MAX_KST_VALUE, kao)) //kst should be less than kao
                             {
                                 UpdateKbi(kst + diff, kbt, kao, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
@@ -275,7 +284,7 @@ namespace AppleTurnover
                         }
                         else
                         {
-                            if (kst - diff > Math.Max(MIN_PARAMETER_VALUE, kbt))
+                            if (kst - diff > MIN_PARAMETER_VALUE)//Math.Max(MIN_PARAMETER_VALUE, kbt))
                             {
                                 UpdateKbi(kst - diff, kbt, kao, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);
@@ -315,7 +324,7 @@ namespace AppleTurnover
                 }
 
                 //KBT
-                if (kbt + ITERATIVE_SHIFT < Math.Min(MAX_KBT_VALUE, kst))
+                if (kbt + ITERATIVE_SHIFT < MAX_KBT_VALUE)//Math.Min(MAX_KBT_VALUE, kst))
                 {
                     UpdateKbi(kst, kbt + ITERATIVE_SHIFT, kao, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
@@ -400,7 +409,7 @@ namespace AppleTurnover
                 {
                     updatedError = double.PositiveInfinity;
                 }
-                if (!(updatedError < previousError) && kao - ITERATIVE_SHIFT > Math.Max(MIN_PARAMETER_VALUE, kst)) //kao should be greater than kst
+                if (!(updatedError < previousError) && kao - ITERATIVE_SHIFT > MIN_PARAMETER_VALUE)//Math.Max(MIN_PARAMETER_VALUE, kst)) //kao should be greater than kst
                 {
                     UpdateKbi(kst, kbt, kao - ITERATIVE_SHIFT, peptides, ITERATIVE_SHIFT);
                     updatedError = peptides.Sum(x => x.Error);
@@ -425,7 +434,7 @@ namespace AppleTurnover
                         }
                         else
                         {
-                            if (kao - diff > Math.Max(MIN_PARAMETER_VALUE, kst)) //kao should be greater than kst
+                            if (kao - diff > MIN_PARAMETER_VALUE)//Math.Max(MIN_PARAMETER_VALUE, kst)) //kao should be greater than kst
                             {
                                 UpdateKbi(kst, kbt, kao - diff, peptides, ITERATIVE_SHIFT);
                                 tempError = peptides.Sum(x => x.Error);

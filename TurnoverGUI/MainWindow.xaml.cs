@@ -38,7 +38,7 @@ namespace AppleTurnover
         private List<PeptideTurnoverObject> AnalyzedProteoforms = new List<PeptideTurnoverObject>();
         private List<PeptideTurnoverObject> PeptidesPreviouslyPlotted = new List<PeptideTurnoverObject>();
         private bool ChangeParamTextBox;
-        private static bool DisplayProteinInSpecificTable; //display the protein (true) or the proteoform (false)
+        private static bool DisplayProteinInSpecificTable = true; //display the protein (true) or the proteoform (false)
         private static bool DisplayFullPeptideSequence;
 
         public MainWindow()
@@ -54,7 +54,7 @@ namespace AppleTurnover
             HalfLifeComparisonPlot.Configure(enableScrollWheelZoom: false);
             RatioComparisonPlot.Configure(enableScrollWheelZoom: false);
             peptideRadioButton.IsChecked = true;
-            proteinSpecificRadioButton.IsChecked = true;
+            proteinSpecificRadioButton.IsChecked = DisplayProteinInSpecificTable;
 
             DisplayPeptidesView = CollectionViewSource.GetDefaultView(PeptidesToDisplay);
             DisplayPeptidesDataGrid.DataContext = DisplayPeptidesView;
@@ -78,7 +78,15 @@ namespace AppleTurnover
         {
             if (AllowFileDrop)
             {
-                string[] files = ((string[])e.Data.GetData(DataFormats.FileDrop)).OrderBy(p => p).ToArray();
+                string[] files = null;
+                try
+                {
+                    files = ((string[])e.Data.GetData(DataFormats.FileDrop)).OrderBy(p => p).ToArray();
+                }
+                catch
+                {
+                    //do nothing; the user dragged something which is not a file (like text)
+                }
 
                 if (files != null)
                 {
@@ -231,7 +239,7 @@ namespace AppleTurnover
                     FilesToHideObservableCollection.Clear();
                 });
 
-                // try
+                try
                 {
                     (sender as BackgroundWorker).ReportProgress(0, "Starting");
 
@@ -319,11 +327,11 @@ namespace AppleTurnover
 
                     (sender as BackgroundWorker).ReportProgress(0, "Finished!");
                 }
-                //catch (Exception ex)
-                //{
-                //    MessageBox.Show("Task failed: " + ex.Message);
-                //    (sender as BackgroundWorker).ReportProgress(0, "Task failed");
-                //}
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Task failed: " + ex.Message);
+                    (sender as BackgroundWorker).ReportProgress(0, "Task failed");
+                }
 
                 AllowFileDrop = true;
                 Dispatcher.Invoke(() =>
@@ -846,11 +854,15 @@ namespace AppleTurnover
                 List<PeptideTurnoverObject> peptidesForThisFile = AllPeptides.Where(x => x.FileName.Equals(dataFile)).ToList();
                 if (customParams != null || PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
                 {
+                    bool firstTime = customParams == null;
                     customParams = customParams ?? PoolParameterDictionary[dataFile];
                     ChangeParamTextBox = false;
-                    KstTB.Text = customParams.Kst.ToString();
-                    KbtTB.Text = customParams.Kbt.ToString();
-                    KaoTB.Text = customParams.Kao.ToString();
+                    if (firstTime)
+                    {
+                        KstTB.Text = customParams.Kst.ToString();
+                        KbtTB.Text = customParams.Kbt.ToString();
+                        KaoTB.Text = customParams.Kao.ToString();
+                    }
                     MseTB.Text = peptidesForThisFile.Average(x => x.Error).ToString();
                     ChangeParamTextBox = true;
                     PlotPrecisionScatterPlot(peptidesForThisFile, customParams);
