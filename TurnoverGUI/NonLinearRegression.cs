@@ -16,9 +16,9 @@ namespace AppleTurnover
     {
         //below values are arbitrary heuristics
         private const double ITERATIVE_SHIFT = 0.001; //original 0.00001
-        private const double MAX_KST_VALUE = 2;
-        private const double MAX_KBT_VALUE = 0.5;
-        private const double MAX_KAO_VALUE = 5;
+        private const double MAX_KST_VALUE = 4;
+        private const double MAX_KBT_VALUE = 1;
+        private const double MAX_KAO_VALUE = 10;
 
         private const double MIN_PARAMETER_VALUE = ITERATIVE_SHIFT * 10;
         //private const int NUM_TRAINING_GROUPS = 6;
@@ -219,7 +219,7 @@ namespace AppleTurnover
                 }
             }
             //output each peptide with its sequence, kbi, 95% confidence interval, and protein
-            File.WriteAllLines(Path.Combine(directory, filename + "_PeptideTurnoverResults.tsv"), linesToWrite);
+            File.WriteAllLines(Path.Combine(directory, filename + "_Results", filename + "_PeptideTurnoverResults.tsv"), linesToWrite);
 
 
             return new PoolParameters(bestKst, bestKbt, bestKao);
@@ -914,7 +914,7 @@ namespace AppleTurnover
             }
 
             //output each peptide with its sequence, kbi, 95% confidence interval, and protein
-            File.WriteAllLines(Path.Combine(directory, filename + "_" + analysisType + "TurnoverResults.tsv"), linesToWrite);
+            File.WriteAllLines(Path.Combine(directory, filename + "_Results", filename + "_" + analysisType + "TurnoverResults.tsv"), linesToWrite);
 
             return proteinsToReturn;
         }

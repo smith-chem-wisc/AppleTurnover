@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -68,8 +69,8 @@ namespace AppleTurnover
             MinValidValuesTotalTextBox.Text = defaultSettings.MinValidValuesTotal.ToString();
             MinValidValuesTimepointTextBox.Text = defaultSettings.MinValidValuesPerTimepoint.ToString();
             UseBadRatiosCheckBox.IsChecked = defaultSettings.UseBadRatios;
-            MaxQuantRadioButton.IsChecked = defaultSettings.UpstreamProgram == Settings.SearchEngine.MaxQuant;
-            MetaMorpheusRadioButton.IsChecked = defaultSettings.UpstreamProgram == Settings.SearchEngine.MetaMorpheus;
+            //MaxQuantRadioButton.IsChecked = defaultSettings.UpstreamProgram == Settings.SearchEngine.MaxQuant;
+            //MetaMorpheusRadioButton.IsChecked = defaultSettings.UpstreamProgram == Settings.SearchEngine.MetaMorpheus;
             RemoveBadPeptidesCheckBox.IsChecked = defaultSettings.RemoveMessyPeptides;
             showFullSequenceCheckbox.IsChecked = true;
         }
@@ -181,8 +182,8 @@ namespace AppleTurnover
             UseBadRatiosCheckBox.IsEnabled = AllowFileDrop;
             MinValidValuesTimepointTextBox.IsEnabled = AllowFileDrop;
             MinValidValuesTotalTextBox.IsEnabled = AllowFileDrop;
-            MetaMorpheusRadioButton.IsEnabled = AllowFileDrop;
-            MaxQuantRadioButton.IsEnabled = AllowFileDrop;
+            //MetaMorpheusRadioButton.IsEnabled = AllowFileDrop;
+            //MaxQuantRadioButton.IsEnabled = AllowFileDrop;
             OutputFigures.IsEnabled = AllowFileDrop;
             RemoveBadPeptidesCheckBox.IsEnabled = AllowFileDrop;
         }
@@ -377,7 +378,8 @@ namespace AppleTurnover
             {
                 RatioComparisonPlot.plt.Layout(titleHeight: 20, xLabelHeight: 40, y2LabelWidth: 20);
                 RatioComparisonPlot.plt.XLabel("Time (Days)", fontSize: 20);
-                RatioComparisonPlot.plt.YLabel("Relative Fraction (Lys0/Total)", fontSize: 20);
+               // RatioComparisonPlot.plt.YLabel("Relative Fraction (Lys0/Total)", fontSize: 20);
+                RatioComparisonPlot.plt.YLabel("Lys0 / LysTotal", fontSize: 20);
                 RatioComparisonPlot.plt.Axis(0, 100, 0, 1);
                 RatioComparisonPlot.plt.Ticks(fontSize: 18);
                 RatioComparisonPlot.plt.PlotScatter(timepoints, rfs, label: label, markerShape: ScottPlot.MarkerShape.none);
@@ -398,7 +400,8 @@ namespace AppleTurnover
                     int.Parse(MinValidValuesTotalTextBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture),
                     int.Parse(MinValidValuesTimepointTextBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture),
                     UseBadRatiosCheckBox.IsChecked.Value,
-                    MaxQuantRadioButton.IsChecked.Value ? Settings.SearchEngine.MaxQuant : Settings.SearchEngine.MetaMorpheus,
+                    //MaxQuantRadioButton.IsChecked.Value ? Settings.SearchEngine.MaxQuant : Settings.SearchEngine.MetaMorpheus, 
+                    Settings.SearchEngine.MetaMorpheus,
                     RemoveBadPeptidesCheckBox.IsChecked.Value);
             });
             return settingsToReturn;
@@ -491,21 +494,22 @@ namespace AppleTurnover
             RatioComparisonPlot.plt.Clear();
             RatioComparisonPlot.plt.Legend(false);
             HalfLifeComparisonPlot.plt.GetPlottables().Clear();
-            if (PlotAminoAcidPoolCheckBox.IsChecked.Value)
-            {
-                foreach (string file in FilesToDisplayObservableCollection)
-                {
-                    PlotFit(PoolParameterDictionary[file], Path.GetFileNameWithoutExtension(file)+" Free Amino Acids");
-                }
-            }
+            //if (PlotAminoAcidPoolCheckBox.IsChecked.Value)
+            //{
+            //    foreach (string file in FilesToDisplayObservableCollection)
+            //    {
+            //        PlotFit(PoolParameterDictionary[file], Path.GetFileNameWithoutExtension(file)+" Free Amino Acids");
+            //    }
+            //}
 
             double minError = double.PositiveInfinity;
             double maxError = double.NegativeInfinity;
             double minHalfLife = double.PositiveInfinity;
             double maxHalfLife = double.NegativeInfinity;
-
+            int debug = 0;
             foreach (PeptideTurnoverObject peptide in peptidesToPlot)
             {
+                debug++;
                 //get the title
                 int fontSize =  Math.Max(Math.Min(24, 100 / (int)Math.Round(Math.Sqrt(peptide.DisplayPeptideSequence.Length))),12);
                 RatioComparisonPlot.plt.Title(peptide.DisplayPeptideSequence, fontSize: fontSize);
@@ -539,9 +543,9 @@ namespace AppleTurnover
                 {
                     halflifeDiff = 0.01;
                 }
-                var scatter = HalfLifeComparisonPlot.plt.PlotScatter(errors, halfLives, lineWidth: 0, label: filename + " peptides");
+                var scatter = HalfLifeComparisonPlot.plt.PlotScatter(errors, halfLives, lineWidth: 0, label: filename + " peptides", color: Color.SteelBlue);//debug == 1 ? Color.DodgerBlue : Color.Red);
                 //plot the single point of the selected peptie separately (overlay) so that we know which one it is
-                var point = HalfLifeComparisonPlot.plt.PlotPoint(peptide.Error, Math.Log(2, Math.E) / peptide.Kbi);
+                var point = HalfLifeComparisonPlot.plt.PlotPoint(peptide.Error, Math.Log(2, Math.E) / peptide.Kbi, color: Color.Black);
                 //plot errors
                 HalfLifeComparisonPlot.plt.PlotErrorBars(errors, halfLives, null, null, positiveErrors, negativeErrors, scatter.color);
                 HalfLifeComparisonPlot.plt.PlotErrorBars(new double[] { peptide.Error }, new double[] { Math.Log(2, Math.E) / peptide.Kbi },
@@ -571,24 +575,32 @@ namespace AppleTurnover
                 if (PlotBestFitCheckBox.IsChecked.Value)
                 {
                     //peptide level
-                    PlotFit(PoolParameterDictionary[filepath], filename+ " Fit (" + (Math.Log(2, Math.E) / peptide.Kbi).ToString("F1") + ")", peptide.Kbi);
+                    PlotFit(PoolParameterDictionary[filepath], filename+ " Fit (" + (Math.Log(2, Math.E) / peptide.Kbi).ToString("F1") + " d)", peptide.Kbi);
                     //protein level
                     double halfLife = Math.Log(2, Math.E) / currentProtein.Kbi;
-                        HalfLifeComparisonPlot.plt.PlotHLine(halfLife, label: filename + " Half-life ("+halfLife.ToString("F1")+")");
+                    HalfLifeComparisonPlot.plt.PlotHLine(halfLife, label: filename + " Half-life (" + halfLife.ToString("F1") + ")", color: Color.OrangeRed);//debug == 1 ? Color.DodgerBlue : Color.Red);
                 }
                 //plt the confidence intervals
                 if (PlotCICheckBox.IsChecked.Value)
                 {
                     //peptide level
-                    PlotFit(PoolParameterDictionary[filepath], filename + " Upper CI (" + (Math.Log(2, Math.E) / peptide.LowKbi).ToString("F1") + ")", peptide.LowKbi);
-                    PlotFit(PoolParameterDictionary[filepath], filename + " Lower CI (" + (Math.Log(2, Math.E) / peptide.HighKbi).ToString("F1") + ")", peptide.HighKbi);
+                    PlotFit(PoolParameterDictionary[filepath], filename + " Upper CI (" + (Math.Log(2, Math.E) / peptide.LowKbi).ToString("F1") + " d)", peptide.LowKbi);
+                    PlotFit(PoolParameterDictionary[filepath], filename + " Lower CI (" + (Math.Log(2, Math.E) / peptide.HighKbi).ToString("F1") + " d)", peptide.HighKbi);
                     //protein level
                     double upperHL = Math.Log(2, Math.E) / currentProtein.LowKbi;
                     double lowerHL = Math.Log(2, Math.E) / currentProtein.HighKbi;
-                        HalfLifeComparisonPlot.plt.PlotHLine(upperHL, label: filename + " Upper CI (" + upperHL.ToString("F1") + ")");
-                        HalfLifeComparisonPlot.plt.PlotHLine(lowerHL, label: filename + " Lower CI (" + lowerHL.ToString("F1") + ")");
+                        HalfLifeComparisonPlot.plt.PlotHLine(upperHL, label: filename + " Upper CI (" + upperHL.ToString("F1") + ")", color: Color.Green);
+                        HalfLifeComparisonPlot.plt.PlotHLine(lowerHL, label: filename + " Lower CI (" + lowerHL.ToString("F1") + ")", color: Color.Red);
                 }
             }
+            if (PlotAminoAcidPoolCheckBox.IsChecked.Value)
+            {
+                foreach (string file in FilesToDisplayObservableCollection)
+                {
+                    PlotFit(PoolParameterDictionary[file], Path.GetFileNameWithoutExtension(file) + " Free Amino Acids");
+                }
+            }
+
             if (DisplayLegendCheckBox.IsChecked.Value)
             {
                 HalfLifeComparisonPlot.plt.Legend();
@@ -637,11 +649,11 @@ namespace AppleTurnover
             PeptidesToDisplay.Clear();
 
             //check if using search criteria
-            string proteinText = ProteinSearchTextBox.Text;
-            string peptideText = PeptidenSearchTextBox.Text;
+            string proteinText = ProteinSearchTextBox.Text.ToUpper();
+            string peptideText = PeptidenSearchTextBox.Text.ToUpper();
             int proteinLength = proteinText.Length;
             //if filtering by both protein and peptide
-            if (ProteinSearchTextBox.Text.Length >= 3 && PeptidenSearchTextBox.Text.Length >= 3)
+            if (proteinText.Length >= 3 && peptideText.Length >= 3)
             {
                 foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) 
                 && x.Protein.Substring(0, Math.Min(proteinLength, x.Protein.Length)).Equals(proteinText) 
@@ -651,7 +663,7 @@ namespace AppleTurnover
                 } 
             }
             //if filtering by just protein
-            else if(ProteinSearchTextBox.Text.Length >= 3)
+            else if(proteinText.Length >= 3)
             {
                 foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.Protein.Substring(0, Math.Min(proteinLength, x.Protein.Length)).Equals(proteinText)))
                 {
@@ -659,7 +671,7 @@ namespace AppleTurnover
                 }
             }
             //if filtering by just peptide
-            else if(PeptidenSearchTextBox.Text.Length >= 3)
+            else if(peptideText.Length >= 3)
             {
                 foreach (PeptideTurnoverObject peptide in AllPeptides.Where(x => FilesToDisplayObservableCollection.Contains(x.FileName) && x.DisplayPeptideSequence.Contains(peptideText)))
                 {
@@ -780,7 +792,7 @@ namespace AppleTurnover
                 PrecisionPlot.plt.Legend(false);
             }
 
-            PrecisionPlot.plt.YLabel("Lys0/Total");
+            PrecisionPlot.plt.YLabel("Lys0 / LysTotal");
             PrecisionPlot.plt.XLabel("Half-life (Days)");
             PrecisionPlot.plt.Axis(0, 50, 0, 1);
             PrecisionPlot.Render(); PrecisionPlot.Render();
@@ -791,15 +803,23 @@ namespace AppleTurnover
             HalfLifeHistogramPlot.plt.Clear();
             HalfLifeHistogramPlot.plt.GetPlottables().Clear();
             double[] halflives = peptidesToPlot.Select(x => Math.Log(2, Math.E) / x.Kbi).ToArray();
-            Histogram histogram = new Histogram(halflives, min: 0, max: 100);
+            Histogram histogram = new Histogram(halflives, 0, 100, 0.5);
 
             double barWidth = histogram.binSize * 1.2; // slightly over-side to reduce anti-alias rendering artifacts
 
-            HalfLifeHistogramPlot.plt.Axis(0, 100, 0, histogram.counts.Max() * 1.1);
+            HalfLifeHistogramPlot.plt.Axis(0, 50, 0, histogram.counts.Max() * 1.1);
             HalfLifeHistogramPlot.plt.PlotBar(histogram.bins, histogram.counts, barWidth: barWidth, outlineWidth: 0);
-            HalfLifeHistogramPlot.plt.YLabel("Frequency (# peptides)");
-            HalfLifeHistogramPlot.plt.XLabel("Half-life (Days)");
-            HalfLifeHistogramPlot.plt.Axis(0, 100, 0, histogram.counts.Max() * 1.1);
+            if (peptideRadioButton.IsChecked.Value)
+            {
+                HalfLifeHistogramPlot.plt.YLabel("Frequency (# Peptides)");
+            }
+            else
+            {
+                HalfLifeHistogramPlot.plt.YLabel("Frequency (# Proteins)");
+                HalfLifeHistogramPlot.plt.YLabel("Number of Proteins", fontSize: 24);
+            }
+            HalfLifeHistogramPlot.plt.XLabel("Half-life (Days)", fontSize: 24);
+            HalfLifeHistogramPlot.plt.Axis(0, 50, 0, histogram.counts.Max() * 1.1);
             HalfLifeComparisonPlot.Render(); HalfLifeComparisonPlot.Render();
         }
 
@@ -872,6 +892,14 @@ namespace AppleTurnover
             else //graph proteins
             {
                 List<PeptideTurnoverObject> proteinsForThisFile = AnalyzedProteins.Where(x => x.FileName.Equals(dataFile)).ToList();
+
+                //hidden code for producing paper figures with both blood types in a single histogram
+                if (dataFile.Contains("lood"))
+                {
+                    //combine the two
+                    proteinsForThisFile = AnalyzedProteins.Where(x => x.FileName.Contains("lood")).ToList();
+                }
+
                 if (customParams != null || PoolParameterDictionary.ContainsKey(dataFile)) //if the file has been analyzed
                 {
                     customParams = customParams ?? PoolParameterDictionary[dataFile];

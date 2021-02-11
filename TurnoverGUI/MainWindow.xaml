@@ -118,9 +118,9 @@
                             <Button x:Name="ClearDataButton" Content="Clear" Click="ClearDataFiles_Click" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Grid.Row="1">
-                            <Label x:Name="SearchEngineLabel" Content="Search Engine Used:" Margin="10 0 10 0"/>
+                            <!--<Label x:Name="SearchEngineLabel" Content="Search Engine Used:" Margin="10 0 10 0"/>
                             <RadioButton x:Name="MetaMorpheusRadioButton" Content="MetaMorpheus" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
-                            <RadioButton x:Name="MaxQuantRadioButton" Content="MaxQuant" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>
+                            <RadioButton x:Name="MaxQuantRadioButton" Content="MaxQuant" GroupName="SearchEngineGroup" Margin="10 0 10 0" VerticalAlignment="Center"/>-->
                         </StackPanel>
                     </Grid>
                 </GroupBox>

@@ -10,6 +10,8 @@ using System.Threading.Tasks;
 using FlashLFQ;
 using System.Collections.ObjectModel;
 using MathNet.Numerics.Statistics;
+using Accessibility;
+using ThermoFisher.CommonCore.Data;
 
 namespace AppleTurnover
 {
@@ -90,6 +92,26 @@ namespace AppleTurnover
                     }
                 }
 
+                //Diagnostics
+                //int numOriginalPeps = 0;
+                //int numSurvivingPeps = 0;
+                ////List<string> originalProteins = new List<string>();
+                ////List<string> survivingProteins = new List<string>();
+                //int[] originalDistribution = new int[25];
+                //int[] postBadRemovalDistribution = new int[25];
+                //int[] postRequirementPerTimepoint = new int[25];
+                //HashSet<string> originalProteins = new HashSet<string>();
+                //HashSet<string> survivingProteins = new HashSet<string>();
+
+                //10 investigate
+                //int[] num3 = new int[6];
+                //int[] num7 = new int[6];
+                //int[] num14 = new int[6];
+                //int[] num30 = new int[6];
+                //int[] num60 = new int[6];
+                //List<(double, string)> peptidesWith10Values = new List<(double, string)>();
+
+
                 //read in the intensities
                 bool peptideInput = header[0].Equals("Sequence");
                 for (int i = 1; i < lines.Length; i++)
@@ -101,12 +123,33 @@ namespace AppleTurnover
                     List<double> rfValuesForThisPeptide = new List<double>();
                     List<string> filenamesForThisPeptide = new List<string>();
                     List<double> intensitiesForThisPeptide = new List<double>();
+
+                    //Diagnostics
+                    //numOriginalPeps++;
+                    //originalProteins.Add(protein);
+                    int numOriginal = 0;
+                    int numPostBadRemoval = 0;
+                    int numPostRequirementPerTimepoint = 0;
+                    double highestIntensity = 0;
+                    double averageIntensity = 0;
+
                     for (int column = firstIntensityIndex; column < firstIntensityIndex + columnIndexToSampleName.Count * 2; column += 2)
                     {
                         double originalIntensity = line[column].Length == 0 ? 0 : Convert.ToDouble(line[column]);
                         double newlySynthesizedIntensity = line[column + 1].Length == 0 ? 0 : Convert.ToDouble(line[column + 1]);
-                        if (settings.UseBadRatios || (originalIntensity != 0 && newlySynthesizedIntensity != 0))
+                        bool atLeastOneIntensity = originalIntensity != 0 || newlySynthesizedIntensity != 0;
+                        if (atLeastOneIntensity)
                         {
+                            numOriginal++;
+                            averageIntensity += originalIntensity + newlySynthesizedIntensity;
+                            if (originalIntensity+newlySynthesizedIntensity>highestIntensity)
+                            {
+                                highestIntensity = originalIntensity + newlySynthesizedIntensity;
+                            }
+                        }
+                        if ((settings.UseBadRatios && atLeastOneIntensity) || (originalIntensity != 0 && newlySynthesizedIntensity != 0))
+                        {
+                            numPostBadRemoval++;
                             int indexLookup = (column - firstIntensityIndex) / 2;
                             timepointsForThisPeptide.Add(columnIndexToTimepoint[indexLookup]);
                             rfValuesForThisPeptide.Add(newlySynthesizedIntensity / (originalIntensity + newlySynthesizedIntensity));
@@ -114,6 +157,15 @@ namespace AppleTurnover
                             intensitiesForThisPeptide.Add(originalIntensity + newlySynthesizedIntensity);
                         }
                     }
+                    //if (numOriginal == 10)
+                    //{
+                    //    num3[timepointsForThisPeptide.Count(x => x > 2 && x < 4)]++;
+                    //    num7[timepointsForThisPeptide.Count(x => x > 6 && x < 8)]++;
+                    //    num14[timepointsForThisPeptide.Count(x => x > 13 && x < 15)]++;
+                    //    num30[timepointsForThisPeptide.Count(x => x > 29 && x < 31)]++;
+                    //    num60[timepointsForThisPeptide.Count(x => x > 59 && x < 61)]++;
+                    //    peptidesWith10Values.Add((intensitiesForThisPeptide.Median(), sequence));
+                    //}
                     //remove timepoints with too little data
                     foreach (double timepoint in timepointToSamples.Keys)
                     {
@@ -122,6 +174,7 @@ namespace AppleTurnover
                         {
                             if (timepointsForThisPeptide[index].Equals(timepoint))
                             {
+                                numPostRequirementPerTimepoint++;
                                 indicesForThisTimepoint.Add(index);
                             }
                         }
@@ -129,6 +182,7 @@ namespace AppleTurnover
                         {
                             for (int index = indicesForThisTimepoint.Count - 1; index >= 0; index--)
                             {
+                                numPostRequirementPerTimepoint--;
                                 int actualIndex = indicesForThisTimepoint[index];
                                 timepointsForThisPeptide.RemoveAt(actualIndex);
                                 rfValuesForThisPeptide.RemoveAt(actualIndex);
@@ -140,12 +194,54 @@ namespace AppleTurnover
 
                     if (timepointsForThisPeptide.Count >= settings.MinValidValuesTotal)
                     {
+                    //    numSurvivingPeps++;
+                    //    survivingProteins.Add(protein);
                         peptides.Add(new PeptideTurnoverObject(sequence, timepointsForThisPeptide.ToArray(), rfValuesForThisPeptide.ToArray(),
                             filenamesForThisPeptide.ToArray(), intensitiesForThisPeptide.ToArray(), intensitiesForThisPeptide.Sum(), file, protein));
                     }
+                    //originalDistribution[numOriginal]++;
+
+                    //postBadRemovalDistribution[numPostBadRemoval]++;
+                    //postRequirementPerTimepoint[numPostRequirementPerTimepoint]++;
+
                 }
+                string pathToWrite = file.Substring(0, file.Length - 4) + "_Results";
+                Directory.CreateDirectory(pathToWrite);
+
+                //DIAGNOSTICS
+                //List<string> linesToWrite = new List<string>();
+                //linesToWrite.Add("Original Peptides:\t" + numOriginalPeps.ToString());
+                //linesToWrite.Add("Surviving Peptides:\t" + numSurvivingPeps.ToString());
+                //linesToWrite.Add("Original Proteins:\t" + originalProteins.Count.ToString());
+                //linesToWrite.Add("Surviving Proteins:\t" + survivingProteins.Count.ToString());
+                //linesToWrite.Add("");
+                //linesToWrite.Add("NumPeptides\tOriginal\tPostBadRatios\tPostTimepointMin");
+                //for (int i = 0; i < 25; i++)
+                //{
+                //    linesToWrite.Add(i.ToString() + '\t' + originalDistribution[i].ToString() + '\t' + postBadRemovalDistribution[i].ToString() + '\t' + postRequirementPerTimepoint[i].ToString());
+                //}
+                //string filename = Path.GetFileNameWithoutExtension(file);
+
+                //pathToWrite = Path.Combine(pathToWrite, filename);
+                //File.WriteAllLines(pathToWrite + "_Diagnostics.tsv", linesToWrite);
+
+                //linesToWrite.Clear();
+                //linesToWrite.Add("\t3\t7\t14\t30\t60");
+                //for(int i=0; i<6; i++)
+                //{
+                //    linesToWrite.Add(i.ToString() + '\t' + num3[i].ToString() + '\t' + num7[i].ToString() + '\t' + num14[i].ToString() + '\t' + num30[i].ToString() + '\t' + num60[i].ToString());
+                //}
+                //peptidesWith10Values = peptidesWith10Values.OrderByDescending(x => x.Item1).ToList();
+                //linesToWrite.Add("");
+                //linesToWrite.Add(peptidesWith10Values[0].Item2);
+                //linesToWrite.Add(peptidesWith10Values[1].Item2);
+                //linesToWrite.Add(peptidesWith10Values[2].Item2);
+                //linesToWrite.Add(peptidesWith10Values[3].Item2);
+                //linesToWrite.Add(peptidesWith10Values[4].Item2);
+                //File.WriteAllLines(pathToWrite + "_DiagnosticsFor10ValidFiles.tsv", linesToWrite);
+                //int a = 0;
             }
-            else //if maxquant
+            else //if maxquant (not really maxquant, but the same format used in Alevra, M.; Mandad, S.; Ischebeck, T.; Urlaub, H.; Rizzoli, S. O.; Fornasiero, E. F. A Mass Spectrometry Workflow for Measuring Protein Turnover Rates in Vivo. Nature Protocols 2019. https://doi.org/10.1038/s41596-019-0222-y.)
             {
                 int firstRatioIndex = -1;
                 int firstIntensityIndex = -1;
@@ -440,7 +536,7 @@ namespace AppleTurnover
                         }
 
                         if (proteinsContainingThisSeq.Count > 1)
-                        { } //FIXME: The handling of this is sloppy, but complicated to deal with the right way. 
+                        { } //TODO: The handling of this is sloppy, but complicated to deal with the right way. 
                             //It's assuming that proteoforms will only appear by being on the same peptide (modified/unmodified) and not through overlapping peptides
                             //find index of base sequence 
                         mostRecentIndex = proteinsContainingThisSeq.First().BaseSequence.IndexOf(mostRecentBaseSequence);
@@ -661,7 +757,7 @@ namespace AppleTurnover
 
         public static bool LoadExistingResults(string inputFile, string fileToLoad, Dictionary<string, PoolParameters> poolParameterDictionary, ObservableCollection<PeptideTurnoverObject> peptides, List<PeptideTurnoverObject> proteins, List<PeptideTurnoverObject> proteoforms)
         {
-           // try
+            try
             {
                 string[] lines = File.ReadAllLines(fileToLoad);
                 //We need to read in the:
@@ -740,7 +836,7 @@ namespace AppleTurnover
                 }
                 return true;
             }
-           // catch
+            catch
             {
                 return false;
             }
