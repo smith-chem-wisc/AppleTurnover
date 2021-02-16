@@ -2,18 +2,18 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public class PoolParameters
     {
         public double Kst { get; set; }
         public double Kbt { get; set; }
-        public double Koa { get; set; }
-        public PoolParameters(double kst, double kbt, double koa)
+        public double Kao { get; set; }
+        public PoolParameters(double kst, double kbt, double kao)
         {
             Kst = kst;
             Kbt = kbt;
-            Koa = koa;
+            Kao = kao;
         }
     }
 }

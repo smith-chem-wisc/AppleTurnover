@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public class RawDataForDataGrid
     {
@@ -10,6 +10,12 @@ namespace TurnoverGUI
         {
             FilePath = path;
             Filename = Path.GetFileName(path);
+        }
+
+        public void RemoveSessionTag()
+        {
+            FilePath = FilePath.Replace("_ApplETurnoverSavedSession", "");
+            Filename = Filename.Replace("_ApplETurnoverSavedSession", "");
         }
     }
 }

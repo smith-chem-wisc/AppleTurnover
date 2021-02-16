@@ -4,13 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TurnoverGUI
+namespace AppleTurnover
 {
     public class PeptideTurnoverObject
     {
         public string FullSequence { get; set; }
         public string BaseSequence { get; set; }
-        public string Protein { get; set; }
+        public string Protein { get; private set; }
+        public string Proteoform { get; private set; }
         public double[] Timepoints { get; set; }
         public double[] RelativeFractions { get; set; }
         public string[] Filenames { get; set; }
@@ -24,14 +25,28 @@ namespace TurnoverGUI
         public int StartResidue { get; set; }
         public int EndResidue { get; set; }
         public Dictionary<int, string> ModDictionary { get; set; }
-        public string ErrorString { get; private set; }
         public string FileName { get; set; }
+        public double[] MonteCarloKbis { get; set; }
 
-        public PeptideTurnoverObject(string fullSequence, double[] timepoints, double[] rFValues, string[] filenames, double[] intensities, double totalIntensity, string fileName, string protein = "")
+        //properties used to display data
+        public string ErrorString { get { return Math.Round(Error, 6).ToString(); } }
+        public double Halflife { get { return Math.Round(Math.Log(2) / Kbi, 1); } }
+        public double CI { get { return Math.Round((Math.Log(2) / LowKbi) - (Math.Log(2) / HighKbi), 1); } }
+        public string DisplayProteinOrProteoform { get; private set; } //used to dynamically display either the protein level or proteoform level information
+        public string DisplayPeptideSequence { get; private set; }//used to dynamically display either the full or base peptide sequence
+
+        public PeptideTurnoverObject(string fullSequence, double[] timepoints, double[] rFValues, string[] filenames, double[] intensities, double totalIntensity, string fileName, string protein = "", string proteoform = null)
         {
+            if (fullSequence.Contains('"'))
+            { fullSequence = fullSequence.Replace("\"", ""); } //weird bug that sometimes occurs in file loading
             FullSequence = fullSequence;
+            DisplayPeptideSequence = fullSequence;
             BaseSequence = CleanSeq(fullSequence);
+
             Protein = protein;
+            DisplayProteinOrProteoform = protein;
+            Proteoform = proteoform ?? protein;
+
 
             //sort by timepoints
             for (int i = 1; i < timepoints.Length; i++)
@@ -73,9 +88,9 @@ namespace TurnoverGUI
             FileName = fileName;
         }
 
-        public PeptideTurnoverObject Copy(string protein)
+        public PeptideTurnoverObject Copy(string proteoform)
         {
-            return new PeptideTurnoverObject(FullSequence, Timepoints, RelativeFractions, Filenames, Intensities, TotalIntensity, FileName, protein);
+            return new PeptideTurnoverObject(FullSequence, Timepoints, RelativeFractions, Filenames, Intensities, TotalIntensity, FileName, Protein, proteoform);
         }
 
         public void UpdateError()
@@ -83,28 +98,23 @@ namespace TurnoverGUI
             Error = TemporaryError;
         }
 
-        //removes all modifications (in parenthesis) and returns the base sequence
+        //removes all modifications (in brackets) and returns the base sequence
         public static string CleanSeq(string seq)
         {
-            bool ModificationOn = false;
-            string ModificationName = "";
             string cleanedSeq = "";
             char[] seqArray = seq.ToCharArray();
-            foreach (char amino_acid in seqArray) //if there are synonymous peaks, then the sequences must be identical or possess ambiguities that will be caught later
+            int numBrackets = 0; //there can be nested brackets, such as [Fe[III]]
+            foreach (char amino_acid in seqArray)
             {
-                if (amino_acid == ']') //only occurs at end of mod
+                if (amino_acid == ']')
                 {
-                    ModificationOn = false;
+                    numBrackets--;
                 }
-                if (ModificationOn == true) //only occurs if "(" already found
+                else if (amino_acid == '[')
                 {
-                    ModificationName += amino_acid;
+                    numBrackets++;
                 }
-                if (amino_acid == '[') //start collecting PTM name
-                {
-                    ModificationOn = true;
-                }
-                if (ModificationOn == false && amino_acid != ']')
+                else if (numBrackets == 0)
                 {
                     cleanedSeq += amino_acid;
                 }
@@ -112,10 +122,16 @@ namespace TurnoverGUI
             return cleanedSeq;
         }
 
-        public void SetErrorString()
+        public void UpdateProteinFromParsimony(string protein)
         {
-            double test = Math.Round(Error, 6);
-            ErrorString = test.ToString();
+            Protein = protein;
+            Proteoform = protein;
+        }
+
+        public void UpdateDisplayProteinOrProteoform(bool displayProtein, bool displayFullSequence)
+        {
+            DisplayProteinOrProteoform = displayProtein ? Protein : Proteoform;
+            DisplayPeptideSequence = displayFullSequence ? FullSequence : BaseSequence;
         }
     }
 }
